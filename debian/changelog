@@ -1,0 +1,5 @@
+python-ironicclient (0.0.1-1) experimental; urgency=low
+
+  * Initial release (Closes: #731681).
+
+ -- Thomas Goirand <zigo@debian.org>  Fri, 30 Nov 2012 17:15:12 +0000

@@ -1,0 +1,56 @@
+Source: python-ironicclient
+Section: python
+Priority: extra
+Maintainer: PKG OpenStack <openstack-devel@lists.alioth.debian.org>
+Uploaders: Julien Danjou <acid@debian.org>,
+           Thomas Goirand <zigo@debian.org>,
+           Mehdi Abaakouk <sileht@sileht.net>
+Build-Depends: debhelper (>= 9),
+               openstack-pkg-tools,
+               python-all (>= 2.6.6-3~),
+               python-pbr (>= 0.5.21)
+Build-Depends-Indep: python-anyjson (>= 0.3.3),
+                     python-babel (>= 1.3),
+                     python-coverage (>= 3.6),
+                     python-fixtures (>= 0.3.14),
+                     python-httplib2,
+                     python-keystoneclient (>= 1:0.4.1),
+                     python-lxml,
+                     python-mock (>= 1.0),
+                     python-prettytable,
+                     python-six (>= 1.4.1),
+                     python-sphinx,
+                     python-subunit,
+                     python-testtools (>= 0.9.32),
+                     testrepository (>= 0.0.17)
+Standards-Version: 3.9.4
+Vcs-Browser: http://git.gplhost.com/gitweb/?p=openstack/python-ironicclient.git;a=summary
+Vcs-Git: http://git.gplhost.com/openstack/python-ironicclient.git
+Homepage: http://www.openstack.org
+
+Package: python-ironicclient
+Architecture: all
+Pre-Depends: dpkg (>= 1.15.6~)
+Depends: python-pbr (>= 0.5.21),
+         python-anyjson (>= 0.3.3),
+         python-httplib2,
+         python-lxml,
+         python-prettytable,
+         python-keystoneclient (>= 1:0.4.1),
+         python-six (>= 1.4.1),
+         ${misc:Depends},
+         ${python:Depends}
+Description: Client for OpenStack bare metal Service
+ Ironic provision bare metal machines instead of virtual machines. It is a fork
+ of the Nova Baremetal driver. It is best thought of as a bare metal hypervisor
+ API and a set of plugins which interact with the bare metal hypervisors. By
+ default, it will use PXE and IPMI in concert to provision and turn on/off
+ machines, but Ironic also supports vendor-specific plugins which may
+ implement
+ additional functionality.
+ .
+ This is a client for the OpenStack Ironic API. There's a Python API
+ (the "ironicclient" module), and a command-line script ("ironic").
+ .
+ Installing this package gets you a shell command, that you can use to
+ interact with Ironic's API.

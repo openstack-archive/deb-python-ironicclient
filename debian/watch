@@ -1,0 +1,2 @@
+version=3
+https://github.com/openstack/python-ironicclient/tags .*/(\d[\d\.]+)\.tar\.gz
