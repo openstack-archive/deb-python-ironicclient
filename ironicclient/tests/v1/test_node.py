@@ -1,6 +1,5 @@
 # -*- encoding: utf-8 -*-
 #!/usr/bin/env python
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
 #
 # Copyright 2013 Hewlett-Packard Development Company, L.P.
 #
@@ -26,7 +25,7 @@ from testtools.matchers import HasLength
 
 NODE1 = {'id': 123,
         'uuid': '66666666-7777-8888-9999-000000000000',
-        'chassis_id': 42,
+        'chassis_uuid': 'aaaaaaaa-1111-bbbb-2222-cccccccccccc',
         'driver': 'fake',
         'driver_info': {'user': 'foo', 'password': 'bar'},
         'properties': {'num_cpu': 4},
@@ -34,7 +33,7 @@ NODE1 = {'id': 123,
 NODE2 = {'id': 456,
         'uuid': '66666666-7777-8888-9999-111111111111',
         'instance_uuid': '66666666-7777-8888-9999-222222222222',
-        'chassis_id': 42,
+        'chassis_uuid': 'aaaaaaaa-1111-bbbb-2222-cccccccccccc',
         'driver': 'fake too',
         'driver_info': {'user': 'foo', 'password': 'bar'},
         'properties': {'num_cpu': 4},
@@ -45,8 +44,19 @@ PORT = {'id': 456,
         'address': 'AA:AA:AA:AA:AA:AA',
         'extra': {}}
 
-POWER_STATE = {'current': 'power off',
-               'target': 'power on'}
+POWER_STATE = {'power_state': 'power off',
+               'target_power_state': 'power on'}
+
+DRIVER_IFACES = {'deploy': {'result': True},
+                 'power': {'result': False, 'reason': 'Invalid IPMI username'},
+                 'console': {'result': None, 'reason': 'not supported'},
+                 'rescue': {'result': None, 'reason': 'not supported'}}
+
+NODE_STATES = {"last_error": None,
+               "power_state": "power on",
+               "provision_state": "active",
+               "target_power_state": None,
+               "target_provision_state": None}
 
 CREATE_NODE = copy.deepcopy(NODE1)
 del CREATE_NODE['id']
@@ -118,11 +128,32 @@ fake_responses = {
             {"ports": [PORT]},
         ),
     },
-    '/v1/nodes/%s/state/power' % NODE1['uuid']:
+    '/v1/nodes/%s/states/power' % NODE1['uuid']:
     {
         'PUT': (
             {},
             POWER_STATE,
+        ),
+    },
+    '/v1/nodes/%s/validate' % NODE1['uuid']:
+    {
+        'GET': (
+            {},
+            DRIVER_IFACES,
+        ),
+    },
+    '/v1/nodes/%s/states/provision' % NODE1['uuid']:
+    {
+        'PUT': (
+            {},
+            None,
+        ),
+    },
+    '/v1/nodes/%s/states' % NODE1['uuid']:
+    {
+        'GET': (
+            {},
+            NODE_STATES,
         ),
     },
 }
@@ -140,15 +171,15 @@ class NodeManagerTest(testtools.TestCase):
         expect = [
             ('GET', '/v1/nodes', {}, None),
         ]
-        self.assertEqual(self.api.calls, expect)
-        self.assertEqual(len(nodes), 2)
+        self.assertEqual(expect, self.api.calls)
+        self.assertEqual(2, len(nodes))
 
     def test_node_list_associated(self):
         nodes = self.mgr.list(associated=True)
         expect = [
             ('GET', '/v1/nodes/?associated=True', {}, None),
         ]
-        self.assertEqual(expect, self.api.calls, )
+        self.assertEqual(expect, self.api.calls)
         self.assertThat(nodes, HasLength(1))
         self.assertEqual(NODE2['uuid'], getattr(nodes[0], 'uuid'))
 
@@ -166,8 +197,8 @@ class NodeManagerTest(testtools.TestCase):
         expect = [
             ('GET', '/v1/nodes/%s' % NODE1['uuid'], {}, None),
         ]
-        self.assertEqual(self.api.calls, expect)
-        self.assertEqual(node.uuid, NODE1['uuid'])
+        self.assertEqual(expect, self.api.calls)
+        self.assertEqual(NODE1['uuid'], node.uuid)
 
     def test_node_show_by_instance(self):
         node = self.mgr.get_by_instance_uuid(NODE2['instance_uuid'])
@@ -184,7 +215,7 @@ class NodeManagerTest(testtools.TestCase):
         expect = [
             ('POST', '/v1/nodes', {}, CREATE_NODE),
         ]
-        self.assertEqual(self.api.calls, expect)
+        self.assertEqual(expect, self.api.calls)
         self.assertTrue(node)
 
     def test_delete(self):
@@ -192,7 +223,7 @@ class NodeManagerTest(testtools.TestCase):
         expect = [
             ('DELETE', '/v1/nodes/%s' % NODE1['uuid'], {}, None),
         ]
-        self.assertEqual(self.api.calls, expect)
+        self.assertEqual(expect, self.api.calls)
         self.assertTrue(node is None)
 
     def test_update(self):
@@ -203,24 +234,55 @@ class NodeManagerTest(testtools.TestCase):
         expect = [
             ('PATCH', '/v1/nodes/%s' % NODE1['uuid'], {}, patch),
         ]
-        self.assertEqual(self.api.calls, expect)
-        self.assertEqual(node.driver, NEW_DRIVER)
+        self.assertEqual(expect, self.api.calls)
+        self.assertEqual(NEW_DRIVER, node.driver)
 
     def test_node_port_list(self):
         ports = self.mgr.list_ports(NODE1['uuid'])
         expect = [
             ('GET', '/v1/nodes/%s/ports' % NODE1['uuid'], {}, None),
         ]
-        self.assertEqual(self.api.calls, expect)
-        self.assertEqual(len(ports), 1)
-        self.assertEqual(ports[0].uuid, PORT['uuid'])
-        self.assertEqual(ports[0].address, PORT['address'])
+        self.assertEqual(expect, self.api.calls)
+        self.assertEqual(1, len(ports))
+        self.assertEqual(PORT['uuid'], ports[0].uuid)
+        self.assertEqual(PORT['address'], ports[0].address)
 
     def test_node_set_power_state(self):
         power_state = self.mgr.set_power_state(NODE1['uuid'], "on")
         body = {'target': 'power on'}
         expect = [
-            ('PUT', '/v1/nodes/%s/state/power' % NODE1['uuid'], {}, body),
+            ('PUT', '/v1/nodes/%s/states/power' % NODE1['uuid'], {}, body),
         ]
         self.assertEqual(expect, self.api.calls)
-        self.assertEqual('power on', power_state.target)
+        self.assertEqual('power on', power_state.target_power_state)
+
+    def test_node_validate(self):
+        ifaces = self.mgr.validate(NODE1['uuid'])
+        expect = [
+            ('GET', '/v1/nodes/%s/validate' % NODE1['uuid'], {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertEqual(DRIVER_IFACES['power'], ifaces.power)
+        self.assertEqual(DRIVER_IFACES['deploy'], ifaces.deploy)
+        self.assertEqual(DRIVER_IFACES['rescue'], ifaces.rescue)
+        self.assertEqual(DRIVER_IFACES['console'], ifaces.console)
+
+    def test_node_set_provision_state(self):
+        target_state = 'active'
+        self.mgr.set_provision_state(NODE1['uuid'], target_state)
+        body = {'target': target_state}
+        expect = [
+            ('PUT', '/v1/nodes/%s/states/provision' % NODE1['uuid'], {}, body),
+        ]
+        self.assertEqual(expect, self.api.calls)
+
+    def test_node_states(self):
+        states = self.mgr.states(NODE1['uuid'])
+        expect = [
+            ('GET', '/v1/nodes/%s/states' % NODE1['uuid'], {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        expected_fields = ['last_error', 'power_state', 'provision_state',
+                           'target_power_state', 'target_provision_state']
+        self.assertEqual(sorted(expected_fields),
+                         sorted(states.to_dict().keys()))

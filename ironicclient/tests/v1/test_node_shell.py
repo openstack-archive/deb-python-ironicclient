@@ -28,13 +28,14 @@ class NodeShellTest(utils.BaseTestCase):
         with mock.patch.object(common_utils, 'print_dict', fake_print_dict):
             node = object()
             n_shell._print_node_show(node)
-        exp = ['chassis_id',
+        exp = ['chassis_uuid',
                'created_at',
                'driver',
                'driver_info',
                'extra',
                'instance_uuid',
                'last_error',
+               'maintenance',
                'power_state',
                'properties',
                'provision_state',

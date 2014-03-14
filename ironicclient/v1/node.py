@@ -17,7 +17,7 @@
 from ironicclient.common import base
 from ironicclient import exc
 
-CREATION_ATTRIBUTES = ['chassis_id', 'driver', 'driver_info', 'extra',
+CREATION_ATTRIBUTES = ['chassis_uuid', 'driver', 'driver_info', 'extra',
                        'node_id', 'properties']
 
 
@@ -78,10 +78,23 @@ class NodeManager(base.Manager):
         return self._update(self._path(node_id), patch)
 
     def set_power_state(self, node_id, state):
-        path = "%s/state/power" % node_id
+        path = "%s/states/power" % node_id
         if state in ['on', 'off']:
             state = "power %s" % state
         if state in ['reboot']:
             state = "rebooting"
         target = {'target': state}
         return self._update(self._path(path), target, method='PUT')
+
+    def validate(self, node_uuid):
+        path = "%s/validate" % node_uuid
+        return self.get(path)
+
+    def set_provision_state(self, node_uuid, state):
+        path = "%s/states/provision" % node_uuid
+        target = {'target': state}
+        return self._update(self._path(path), target, method='PUT')
+
+    def states(self, node_uuid):
+        path = "%s/states" % node_uuid
+        return self.get(path)

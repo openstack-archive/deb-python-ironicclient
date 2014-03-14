@@ -1,4 +1,3 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
 # coding: utf-8
 #
 # Copyright 2013 Red Hat, Inc.
@@ -23,7 +22,7 @@ from ironicclient.tests import utils
 import ironicclient.v1.driver
 
 
-DRIVER = {'name': 'fake'}
+DRIVER = {'name': 'fake', 'hosts': ['fake-host1', 'fake-host2']}
 
 fake_responses = {
     '/v1/drivers':

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
 
 # Copyright 2013 Red Hat, Inc.
 # All Rights Reserved.
@@ -20,10 +19,11 @@ from ironicclient.common import utils
 
 
 def _print_node_show(node):
-    fields = ['chassis_id', 'created_at', 'driver', 'driver_info', 'extra',
-              'instance_uuid', 'last_error', 'power_state', 'properties',
-              'provision_state', 'reservation', 'target_power_state',
-              'target_provision_state', 'updated_at', 'uuid']
+    fields = ['chassis_uuid', 'created_at', 'driver', 'driver_info', 'extra',
+              'instance_uuid', 'last_error', 'maintenance', 'power_state',
+              'properties', 'provision_state', 'reservation',
+              'target_power_state', 'target_provision_state', 'updated_at',
+              'uuid']
     data = dict([(f, getattr(node, f, '')) for f in fields])
     utils.print_dict(data, wrap=72)
 
@@ -62,9 +62,9 @@ def do_node_list(cc, args):
     utils.print_list(nodes, fields, field_labels, sortby=1)
 
 
-@utils.arg('-c', '--chassis_id',
-           metavar='<chassis id>',
-           help='UUID of the chassis that this node belongs to [REQUIRED]')
+@utils.arg('-c', '--chassis_uuid',
+           metavar='<chassis uuid>',
+           help='UUID of the chassis that this node belongs to')
 @utils.arg('-d', '--driver',
            metavar='<driver>',
            help='Driver used to control the node [REQUIRED]')
@@ -86,7 +86,8 @@ def do_node_list(cc, args):
                 "Can be specified multiple times")
 def do_node_create(cc, args):
     """Create a new node."""
-    field_list = ['chassis_id', 'driver', 'driver_info', 'properties', 'extra']
+    field_list = ['chassis_uuid', 'driver', 'driver_info',
+                  'properties', 'extra']
     fields = dict((k, v) for (k, v) in vars(args).items()
                   if k in field_list and not (v is None))
     fields = utils.args_array_to_dict(fields, 'driver_info')
@@ -149,7 +150,20 @@ def do_node_port_list(cc, args):
            help="Supported states: 'on' or 'off' or 'reboot'")
 def do_node_set_power_state(cc, args):
     """Power the node on or off."""
-    state = cc.node.set_power_state(args.node, args.power_state)
-    field_list = ['current', 'target']
-    data = dict([(f, getattr(state, f, '')) for f in field_list])
-    utils.print_dict(data, wrap=72)
+    cc.node.set_power_state(args.node, args.power_state)
+
+
+@utils.arg('node',
+           metavar='<node uuid>',
+           help="UUID of node")
+def do_node_validate(cc, args):
+    """Validate the node driver interfaces."""
+    ifaces = cc.node.validate(args.node)
+    obj_list = []
+    for key, value in ifaces.to_dict().iteritems():
+        data = {'interface': key}
+        data.update(value)
+        obj_list.append(type('iface', (object,), data))
+    field_labels = ['Interface', 'Result', 'Reason']
+    fields = ['interface', 'result', 'reason']
+    utils.print_list(obj_list, fields, field_labels)

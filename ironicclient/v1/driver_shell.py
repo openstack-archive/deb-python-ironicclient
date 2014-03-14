@@ -1,4 +1,3 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
 # coding: utf-8
 #
 # Copyright 2013 Red Hat, Inc.
@@ -21,7 +20,11 @@ from ironicclient.common import utils
 
 def do_driver_list(cc, args):
     """List drivers."""
-    driver = cc.driver.list()
-    field_labels = ['Supported drivers']
-    fields = ['name']
-    utils.print_list(driver, fields, field_labels)
+    drivers = cc.driver.list()
+    # NOTE(lucasagomes): Separate each host by a comma.
+    # It's easier to read.
+    for d in drivers:
+        d.hosts = ', '.join(d.hosts)
+    field_labels = ['Supported driver(s)', 'Active host(s)']
+    fields = ['name', 'hosts']
+    utils.print_list(drivers, fields, field_labels)
