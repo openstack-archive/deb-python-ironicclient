@@ -1,4 +1,4 @@
-python-ironicclient (0.1.2-2) UNRELEASED; urgency=low
+python-ironicclient (0.1.2-2) experimental; urgency=low
 
   * Better unit test output.
 
