@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # Copyright 2013 Red Hat, Inc.
 # All Rights Reserved.
 #
@@ -19,11 +17,11 @@ from ironicclient.common import utils
 
 
 def _print_node_show(node):
-    fields = ['chassis_uuid', 'created_at', 'driver', 'driver_info', 'extra',
-              'instance_uuid', 'last_error', 'maintenance', 'power_state',
-              'properties', 'provision_state', 'reservation',
-              'target_power_state', 'target_provision_state', 'updated_at',
-              'uuid']
+    fields = ['chassis_uuid', 'created_at', 'console_enabled', 'driver',
+              'driver_info', 'extra', 'instance_uuid', 'last_error',
+              'maintenance', 'power_state', 'properties', 'provision_state',
+              'reservation', 'target_power_state', 'target_provision_state',
+              'updated_at', 'uuid']
     data = dict([(f, getattr(node, f, '')) for f in fields])
     utils.print_dict(data, wrap=72)
 
@@ -44,18 +42,23 @@ def do_node_show(cc, args):
     _print_node_show(node)
 
 
+@utils.arg('--maintenance',
+           metavar='<maintenance>',
+           choices=['true', 'True', 'false', 'False'],
+           help="List nodes in maintenance mode: 'true' or 'false'")
 @utils.arg('--associated',
            metavar='<assoc>',
            choices=['true', 'True', 'false', 'False'],
            help="List nodes by instance association: 'true' or 'false'")
 def do_node_list(cc, args):
     """List nodes."""
-    if args.associated is None:
-        nodes = cc.node.list()
-    else:
-        associated = args.associated.lower() == 'true'
-        nodes = cc.node.list(associated)
+    params = {}
+    if args.associated is not None:
+        params['associated'] = args.associated
+    if args.maintenance is not None:
+        params['maintenance'] = args.maintenance
 
+    nodes = cc.node.list(**params)
     field_labels = ['UUID', 'Instance UUID',
                     'Power State', 'Provisioning State']
     fields = ['uuid', 'instance_uuid', 'power_state', 'provision_state']
@@ -167,3 +170,25 @@ def do_node_validate(cc, args):
     field_labels = ['Interface', 'Result', 'Reason']
     fields = ['interface', 'result', 'reason']
     utils.print_list(obj_list, fields, field_labels)
+
+
+@utils.arg('node',
+           metavar='<node uuid>',
+           help="UUID of node")
+def do_node_get_console(cc, args):
+    """Return the connection information about the console."""
+    info = cc.node.get_console(args.node)
+    utils.print_dict(info, wrap=72)
+
+
+@utils.arg('node',
+           metavar='<node uuid>',
+           help="UUID of node")
+@utils.arg('enabled',
+           metavar='<enabled>',
+           choices=['true', 'false'],
+           help="Enable or disable the console access. "
+                "Supported options are: 'true' or 'false'")
+def do_node_set_console_mode(cc, args):
+    """Enable or disable the console access."""
+    cc.node.set_console_mode(args.node, args.enabled)

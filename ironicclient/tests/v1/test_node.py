@@ -1,5 +1,4 @@
 # -*- encoding: utf-8 -*-
-#!/usr/bin/env python
 #
 # Copyright 2013 Hewlett-Packard Development Company, L.P.
 #
@@ -26,6 +25,7 @@ from testtools.matchers import HasLength
 NODE1 = {'id': 123,
         'uuid': '66666666-7777-8888-9999-000000000000',
         'chassis_uuid': 'aaaaaaaa-1111-bbbb-2222-cccccccccccc',
+        'maintenance': False,
         'driver': 'fake',
         'driver_info': {'user': 'foo', 'password': 'bar'},
         'properties': {'num_cpu': 4},
@@ -34,6 +34,7 @@ NODE2 = {'id': 456,
         'uuid': '66666666-7777-8888-9999-111111111111',
         'instance_uuid': '66666666-7777-8888-9999-222222222222',
         'chassis_uuid': 'aaaaaaaa-1111-bbbb-2222-cccccccccccc',
+        'maintenance': True,
         'driver': 'fake too',
         'driver_info': {'user': 'foo', 'password': 'bar'},
         'properties': {'num_cpu': 4},
@@ -58,9 +59,12 @@ NODE_STATES = {"last_error": None,
                "target_power_state": None,
                "target_provision_state": None}
 
+CONSOLE_DATA = {'test-console': 'test-console-data'}
+
 CREATE_NODE = copy.deepcopy(NODE1)
 del CREATE_NODE['id']
 del CREATE_NODE['uuid']
+del CREATE_NODE['maintenance']
 
 UPDATED_NODE = copy.deepcopy(NODE1)
 NEW_DRIVER = 'new-driver'
@@ -86,6 +90,27 @@ fake_responses = {
         )
     },
     '/v1/nodes/?associated=True':
+    {
+        'GET': (
+            {},
+            {"nodes": [NODE2]},
+        )
+    },
+    '/v1/nodes/?maintenance=False':
+    {
+        'GET': (
+            {},
+            {"nodes": [NODE1]},
+        )
+    },
+    '/v1/nodes/?maintenance=True':
+    {
+        'GET': (
+            {},
+            {"nodes": [NODE2]},
+        )
+    },
+    '/v1/nodes/?associated=True&maintenance=True':
     {
         'GET': (
             {},
@@ -156,6 +181,17 @@ fake_responses = {
             NODE_STATES,
         ),
     },
+    '/v1/nodes/%s/states/console' % NODE1['uuid']:
+    {
+        'GET': (
+            {},
+            CONSOLE_DATA,
+        ),
+        'PUT': (
+            {},
+            None,
+        ),
+    },
 }
 
 
@@ -191,6 +227,33 @@ class NodeManagerTest(testtools.TestCase):
         self.assertEqual(expect, self.api.calls)
         self.assertThat(nodes, HasLength(1))
         self.assertEqual(NODE1['uuid'], getattr(nodes[0], 'uuid'))
+
+    def test_node_list_maintenance(self):
+        nodes = self.mgr.list(maintenance=True)
+        expect = [
+            ('GET', '/v1/nodes/?maintenance=True', {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertThat(nodes, HasLength(1))
+        self.assertEqual(NODE2['uuid'], getattr(nodes[0], 'uuid'))
+
+    def test_node_list_no_maintenance(self):
+        nodes = self.mgr.list(maintenance=False)
+        expect = [
+            ('GET', '/v1/nodes/?maintenance=False', {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertThat(nodes, HasLength(1))
+        self.assertEqual(NODE1['uuid'], getattr(nodes[0], 'uuid'))
+
+    def test_node_list_associated_and_maintenance(self):
+        nodes = self.mgr.list(associated=True, maintenance=True)
+        expect = [
+            ('GET', '/v1/nodes/?associated=True&maintenance=True', {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertThat(nodes, HasLength(1))
+        self.assertEqual(NODE2['uuid'], getattr(nodes[0], 'uuid'))
 
     def test_node_show(self):
         node = self.mgr.get(NODE1['uuid'])
@@ -286,3 +349,20 @@ class NodeManagerTest(testtools.TestCase):
                            'target_power_state', 'target_provision_state']
         self.assertEqual(sorted(expected_fields),
                          sorted(states.to_dict().keys()))
+
+    def test_node_set_console_mode(self):
+        enabled = 'true'
+        self.mgr.set_console_mode(NODE1['uuid'], enabled)
+        body = {'enabled': enabled}
+        expect = [
+            ('PUT', '/v1/nodes/%s/states/console' % NODE1['uuid'], {}, body),
+        ]
+        self.assertEqual(expect, self.api.calls)
+
+    def test_node_get_console(self):
+        info = self.mgr.get_console(NODE1['uuid'])
+        expect = [
+            ('GET', '/v1/nodes/%s/states/console' % NODE1['uuid'], {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertEqual(CONSOLE_DATA, info)

@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2013 IBM Corp
+# Copyright 2014 Hewlett-Packard Development Company, L.P.
 #
 #   Licensed under the Apache License, Version 2.0 (the "License"); you may
 #   not use this file except in compliance with the License. You may obtain
@@ -18,32 +18,16 @@ import mock
 
 from ironicclient.common import utils as common_utils
 from ironicclient.tests import utils
-import ironicclient.v1.node_shell as n_shell
+import ironicclient.v1.driver_shell as d_shell
 
 
-class NodeShellTest(utils.BaseTestCase):
-    def test_node_show(self):
+class DriverShellTest(utils.BaseTestCase):
+    def test_driver_show(self):
         actual = {}
         fake_print_dict = lambda data, *args, **kwargs: actual.update(data)
         with mock.patch.object(common_utils, 'print_dict', fake_print_dict):
-            node = object()
-            n_shell._print_node_show(node)
-        exp = ['chassis_uuid',
-               'created_at',
-               'console_enabled',
-               'driver',
-               'driver_info',
-               'extra',
-               'instance_uuid',
-               'last_error',
-               'maintenance',
-               'power_state',
-               'properties',
-               'provision_state',
-               'reservation',
-               'target_power_state',
-               'target_provision_state',
-               'updated_at',
-               'uuid']
+            driver = object()
+            d_shell._print_driver_show(driver)
+        exp = ['hosts', 'name']
         act = actual.keys()
         self.assertEqual(sorted(exp), sorted(act))

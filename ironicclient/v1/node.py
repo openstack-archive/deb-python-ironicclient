@@ -33,11 +33,17 @@ class NodeManager(base.Manager):
     def _path(id=None):
         return '/v1/nodes/%s' % id if id else '/v1/nodes'
 
-    def list(self, associated=None):
-        if associated is None:
+    def list(self, associated=None, maintenance=None):
+        filters = []
+        if associated is not None:
+            filters.append('associated=%s' % associated)
+        if maintenance is not None:
+            filters.append('maintenance=%s' % maintenance)
+
+        if not filters:
             return self._list(self._path(), "nodes")
         else:
-            path = '?associated=%s' % str(bool(associated))
+            path = '?' + '&'.join(filters)
             return self._list(self._path(path), "nodes")
 
     def list_ports(self, node_id):
@@ -98,3 +104,15 @@ class NodeManager(base.Manager):
     def states(self, node_uuid):
         path = "%s/states" % node_uuid
         return self.get(path)
+
+    def get_console(self, node_uuid):
+        path = "%s/states/console" % node_uuid
+        info = self.get(path)
+        if not info:
+            return {}
+        return info.to_dict()
+
+    def set_console_mode(self, node_uuid, enabled):
+        path = "%s/states/console" % node_uuid
+        target = {'enabled': enabled}
+        return self._update(self._path(path), target, method='PUT')
