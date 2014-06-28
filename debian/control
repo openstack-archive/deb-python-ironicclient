@@ -26,8 +26,8 @@ Build-Depends-Indep: python-anyjson (>= 0.3.3),
                      subunit  (>= 0.0.18),
                      testrepository (>= 0.0.18)
 Standards-Version: 3.9.5
-Vcs-Browser: http://git.gplhost.com/gitweb/?p=openstack/python-ironicclient.git;a=summary
-Vcs-Git: http://git.gplhost.com/openstack/python-ironicclient.git
+Vcs-Browser: http://anonscm.debian.org/gitweb/?p=openstack/python-ironicclient.git;a=summary
+Vcs-Git: git://anonscm.debian.org/openstack/python-ironicclient.git
 Homepage: http://www.openstack.org
 
 Package: python-ironicclient

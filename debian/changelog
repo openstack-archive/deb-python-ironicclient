@@ -1,3 +1,9 @@
+python-ironicclient (0.1.4-2) unstable; urgency=medium
+
+  * Fixed VCS URLs.
+
+ -- Thomas Goirand <zigo@debian.org>  Sun, 29 Jun 2014 00:39:11 +0800
+
 python-ironicclient (0.1.4-1) unstable; urgency=medium
 
   * New upstream release.
