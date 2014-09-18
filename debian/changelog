@@ -1,6 +1,8 @@
 python-ironicclient (0.2.1-1) experimental; urgency=medium
 
   * New upstream release.
+  * Uploading to experimental just before the Jessie freeze.
+  * Updated (build-)depends for this release.
 
  -- Thomas Goirand <zigo@debian.org>  Thu, 18 Sep 2014 22:57:18 +0800
 
