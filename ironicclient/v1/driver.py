@@ -1,4 +1,4 @@
-# coding: utf-8
+# -*- coding: utf-8 -*-
 #
 # Copyright 2013 Red Hat, Inc.
 # All Rights Reserved.
@@ -34,3 +34,22 @@ class DriverManager(base.Manager):
             return self._list('/v1/drivers/%s' % driver_name)[0]
         except IndexError:
             return None
+
+    def properties(self, driver_name):
+        try:
+            info = self._list('/v1/drivers/%s/properties' % driver_name)[0]
+            if info:
+                return info.to_dict()
+            return {}
+        except IndexError:
+            return {}
+
+    def vendor_passthru(self, **kwargs):
+        driver_name = kwargs['driver_name']
+        method = kwargs['method']
+        args = kwargs['args']
+        path = "/v1/drivers/%(driver_name)s/vendor_passthru/%(method)s" % {
+                                                    'driver_name': driver_name,
+                                                    'method': method
+                                                    }
+        return self._update(path, args, method='POST')

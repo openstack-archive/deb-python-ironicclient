@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+#
 # Copyright 2013 Hewlett-Packard Development Company, L.P.
 # All Rights Reserved.
 #
@@ -15,5 +17,14 @@
 
 import pbr.version
 
+from ironicclient import client
+from ironicclient import exc as exceptions
+
 
 __version__ = pbr.version.VersionInfo('python-ironicclient').version_string()
+
+__all__ = [
+        'client',
+        'exc',
+        'exceptions',
+]

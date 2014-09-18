@@ -1,4 +1,4 @@
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2013 Hewlett-Packard Development Company, L.P.
 #
@@ -15,12 +15,13 @@
 #    under the License.
 
 import copy
-
+import mock
 import testtools
-
-from ironicclient.tests import utils
-import ironicclient.v1.node
 from testtools.matchers import HasLength
+
+from ironicclient.common import base
+from ironicclient.tests import utils
+from ironicclient.v1 import node
 
 NODE1 = {'id': 123,
         'uuid': '66666666-7777-8888-9999-000000000000',
@@ -63,6 +64,9 @@ CONSOLE_DATA_ENABLED = {'console_enabled': True,
                         'console_info': {'test-console': 'test-console-data'}}
 CONSOLE_DATA_DISABLED = {'console_enabled': False, 'console_info': None}
 
+BOOT_DEVICE = {'boot_device': 'pxe', 'persistent': False}
+SUPPORTED_BOOT_DEVICE = {'supported_boot_devices': ['pxe']}
+
 CREATE_NODE = copy.deepcopy(NODE1)
 del CREATE_NODE['id']
 del CREATE_NODE['uuid']
@@ -77,11 +81,18 @@ fake_responses = {
     {
         'GET': (
             {},
-            {"nodes": [NODE1, NODE2]},
+            {"nodes": [NODE1, NODE2]}
         ),
         'POST': (
             {},
             CREATE_NODE,
+        ),
+    },
+    '/v1/nodes/detail':
+    {
+        'GET': (
+            {},
+            {"nodes": [NODE1, NODE2]}
         ),
     },
     '/v1/nodes/?associated=False':
@@ -201,6 +212,63 @@ fake_responses = {
             CONSOLE_DATA_DISABLED,
         ),
     },
+    '/v1/nodes/%s/management/boot_device' % NODE1['uuid']:
+    {
+        'GET': (
+            {},
+            BOOT_DEVICE,
+        ),
+        'PUT': (
+            {},
+            None,
+        ),
+    },
+    '/v1/nodes/%s/management/boot_device/supported' % NODE1['uuid']:
+    {
+        'GET': (
+            {},
+            SUPPORTED_BOOT_DEVICE,
+        ),
+    },
+}
+
+fake_responses_pagination = {
+    '/v1/nodes':
+    {
+        'GET': (
+            {},
+            {"nodes": [NODE1],
+             "next": "http://127.0.0.1:6385/v1/nodes/?limit=1"}
+        ),
+    },
+    '/v1/nodes/?limit=1':
+    {
+        'GET': (
+            {},
+            {"nodes": [NODE2]}
+        ),
+    },
+    '/v1/nodes/?marker=%s' % NODE1['uuid']:
+    {
+        'GET': (
+            {},
+            {"nodes": [NODE2]}
+        ),
+    },
+    '/v1/nodes/%s/ports?limit=1' % NODE1['uuid']:
+    {
+        'GET': (
+            {},
+            {"ports": [PORT]},
+        ),
+    },
+    '/v1/nodes/%s/ports?marker=%s' % (NODE1['uuid'], PORT['uuid']):
+    {
+        'GET': (
+            {},
+            {"ports": [PORT]},
+        ),
+    },
 }
 
 
@@ -209,12 +277,43 @@ class NodeManagerTest(testtools.TestCase):
     def setUp(self):
         super(NodeManagerTest, self).setUp()
         self.api = utils.FakeAPI(fake_responses)
-        self.mgr = ironicclient.v1.node.NodeManager(self.api)
+        self.mgr = node.NodeManager(self.api)
 
     def test_node_list(self):
         nodes = self.mgr.list()
         expect = [
             ('GET', '/v1/nodes', {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertEqual(2, len(nodes))
+
+    def test_node_list_limit(self):
+        self.api = utils.FakeAPI(fake_responses_pagination)
+        self.mgr = node.NodeManager(self.api)
+        nodes = self.mgr.list(limit=1)
+        expect = [
+            ('GET', '/v1/nodes/?limit=1', {}, None)
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertThat(nodes, HasLength(1))
+
+    def test_node_list_marker(self):
+        self.api = utils.FakeAPI(fake_responses_pagination)
+        self.mgr = node.NodeManager(self.api)
+        nodes = self.mgr.list(marker=NODE1['uuid'])
+        expect = [
+            ('GET', '/v1/nodes/?marker=%s' % NODE1['uuid'], {}, None)
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertThat(nodes, HasLength(1))
+
+    def test_node_list_pagination_no_limit(self):
+        self.api = utils.FakeAPI(fake_responses_pagination)
+        self.mgr = node.NodeManager(self.api)
+        nodes = self.mgr.list(limit=0)
+        expect = [
+            ('GET', '/v1/nodes', {}, None),
+            ('GET', '/v1/nodes/?limit=1', {}, None)
         ]
         self.assertEqual(expect, self.api.calls)
         self.assertEqual(2, len(nodes))
@@ -264,6 +363,15 @@ class NodeManagerTest(testtools.TestCase):
         self.assertThat(nodes, HasLength(1))
         self.assertEqual(NODE2['uuid'], getattr(nodes[0], 'uuid'))
 
+    def test_node_list_detail(self):
+        nodes = self.mgr.list(detail=True)
+        expect = [
+            ('GET', '/v1/nodes/detail', {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertEqual(2, len(nodes))
+        self.assertEqual(nodes[0].extra, {})
+
     def test_node_show(self):
         node = self.mgr.get(NODE1['uuid'])
         expect = [
@@ -296,7 +404,7 @@ class NodeManagerTest(testtools.TestCase):
             ('DELETE', '/v1/nodes/%s' % NODE1['uuid'], {}, None),
         ]
         self.assertEqual(expect, self.api.calls)
-        self.assertTrue(node is None)
+        self.assertIsNone(node)
 
     def test_update(self):
         patch = {'op': 'replace',
@@ -318,6 +426,29 @@ class NodeManagerTest(testtools.TestCase):
         self.assertEqual(1, len(ports))
         self.assertEqual(PORT['uuid'], ports[0].uuid)
         self.assertEqual(PORT['address'], ports[0].address)
+
+    def test_node_port_list_limit(self):
+        self.api = utils.FakeAPI(fake_responses_pagination)
+        self.mgr = node.NodeManager(self.api)
+        ports = self.mgr.list_ports(NODE1['uuid'], limit=1)
+        expect = [
+            ('GET', '/v1/nodes/%s/ports?limit=1' % NODE1['uuid'], {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertThat(ports, HasLength(1))
+        self.assertEqual(PORT['uuid'], ports[0].uuid)
+        self.assertEqual(PORT['address'], ports[0].address)
+
+    def test_node_port_list_marker(self):
+        self.api = utils.FakeAPI(fake_responses_pagination)
+        self.mgr = node.NodeManager(self.api)
+        ports = self.mgr.list_ports(NODE1['uuid'], marker=PORT['uuid'])
+        expect = [
+            ('GET', '/v1/nodes/%s/ports?marker=%s' % (NODE1['uuid'],
+                                                      PORT['uuid']), {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertThat(ports, HasLength(1))
 
     def test_node_set_power_state(self):
         power_state = self.mgr.set_power_state(NODE1['uuid'], "on")
@@ -383,3 +514,53 @@ class NodeManagerTest(testtools.TestCase):
         ]
         self.assertEqual(expect, self.api.calls)
         self.assertEqual(CONSOLE_DATA_DISABLED, info)
+
+    @mock.patch.object(base.Manager, '_update')
+    def test_vendor_passthru(self, update_mock):
+        # For now just mock the tests because vendor-passthru doesn't return
+        # anything to verify.
+        vendor_passthru_args = {'arg1': 'val1'}
+        kwargs = {
+                  'node_id': 'node_uuid',
+                  'method': 'method',
+                  'args': vendor_passthru_args
+                 }
+        self.mgr.vendor_passthru(**kwargs)
+
+        final_path = '/v1/nodes/node_uuid/vendor_passthru/method'
+        update_mock.assert_once_called_with(final_path,
+                                            vendor_passthru_args,
+                                            method='POST')
+
+    def _test_node_set_boot_device(self, boot_device, persistent=False):
+        self.mgr.set_boot_device(NODE1['uuid'], boot_device, persistent)
+        body = {'boot_device': boot_device, 'persistent': persistent}
+        expect = [
+            ('PUT', '/v1/nodes/%s/management/boot_device' % NODE1['uuid'],
+             {}, body),
+        ]
+        self.assertEqual(expect, self.api.calls)
+
+    def test_node_set_boot_device(self):
+        self._test_node_set_boot_device('pxe')
+
+    def test_node_set_boot_device_persistent(self):
+        self._test_node_set_boot_device('pxe', persistent=True)
+
+    def test_node_get_boot_device(self):
+        boot_device = self.mgr.get_boot_device(NODE1['uuid'])
+        expect = [
+            ('GET', '/v1/nodes/%s/management/boot_device' % NODE1['uuid'],
+             {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertEqual(BOOT_DEVICE, boot_device)
+
+    def test_node_get_supported_boot_devices(self):
+        boot_device = self.mgr.get_supported_boot_devices(NODE1['uuid'])
+        expect = [
+            ('GET', '/v1/nodes/%s/management/boot_device/supported' %
+             NODE1['uuid'], {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertEqual(SUPPORTED_BOOT_DEVICE, boot_device)

@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+#
 #   Licensed under the Apache License, Version 2.0 (the "License"); you may
 #   not use this file except in compliance with the License. You may obtain
 #   a copy of the License at
@@ -93,3 +95,16 @@ class ShellTest(utils.BaseTestCase):
     def test_auth_param(self):
         self.make_env(exclude='OS_USERNAME')
         self.test_help()
+
+    def test_bash_completion(self):
+        stdout = self.shell('bash-completion')
+        # just check we have some output
+        required = [
+            '.*--driver_info',
+            '.*--chassis_uuid',
+            '.*help',
+            '.*node-create',
+            '.*chassis-create']
+        for r in required:
+            self.assertThat(stdout,
+                            matchers.MatchesRegex(r, self.re_options))

@@ -1,4 +1,4 @@
-# coding: utf-8
+# -*- coding: utf-8 -*-
 #
 # Copyright 2013 Red Hat, Inc.
 # All Rights Reserved.
@@ -15,28 +15,44 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import mock
 import testtools
 from testtools import matchers
 
+from ironicclient.common import base
 from ironicclient.tests import utils
 import ironicclient.v1.driver
 
 
-DRIVER = {'name': 'fake', 'hosts': ['fake-host1', 'fake-host2']}
+DRIVER1 = {'name': 'fake', 'hosts': ['fake-host1', 'fake-host2']}
+DRIVER2 = {'name': 'pxe_ipminative', 'hosts': ['fake-host1', 'fake-host2']}
+
+DRIVER2_PROPERTIES = {
+  "username": "username. Required.",
+  "password": "password. Optional.",
+  "address": "IP of the node. Required.",
+}
 
 fake_responses = {
     '/v1/drivers':
     {
         'GET': (
             {},
-            {'drivers': [DRIVER]},
+            {'drivers': [DRIVER1]},
         ),
     },
-    '/v1/drivers/%s' % DRIVER['name']:
+    '/v1/drivers/%s' % DRIVER1['name']:
     {
         'GET': (
             {},
-            DRIVER
+            DRIVER1
+        ),
+    },
+    '/v1/drivers/%s/properties' % DRIVER2['name']:
+    {
+        'GET': (
+            {},
+            DRIVER2_PROPERTIES,
         ),
     }
 }
@@ -58,10 +74,35 @@ class DriverManagerTest(testtools.TestCase):
         self.assertThat(drivers, matchers.HasLength(1))
 
     def test_driver_show(self):
-        driver = self.mgr.get(DRIVER['name'])
+        driver = self.mgr.get(DRIVER1['name'])
         expect = [
-            ('GET', '/v1/drivers/%s' % DRIVER['name'], {}, None)
+            ('GET', '/v1/drivers/%s' % DRIVER1['name'], {}, None)
         ]
         self.assertEqual(expect, self.api.calls)
-        self.assertEqual(DRIVER['name'], driver.name)
-        self.assertEqual(DRIVER['hosts'], driver.hosts)
+        self.assertEqual(DRIVER1['name'], driver.name)
+        self.assertEqual(DRIVER1['hosts'], driver.hosts)
+
+    def test_driver_properties(self):
+        properties = self.mgr.properties(DRIVER2['name'])
+        expect = [
+            ('GET', '/v1/drivers/%s/properties' % DRIVER2['name'], {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertEqual(DRIVER2_PROPERTIES, properties)
+
+    @mock.patch.object(base.Manager, '_update')
+    def test_vendor_passthru(self, update_mock):
+        # For now just mock the tests because vendor-passthru doesn't return
+        # anything to verify.
+        vendor_passthru_args = {'arg1': 'val1'}
+        kwargs = {
+                  'driver_name': 'driver_name',
+                  'method': 'method',
+                  'args': vendor_passthru_args
+                 }
+        self.mgr.vendor_passthru(**kwargs)
+
+        final_path = '/v1/drivers/driver_name/vendor_passthru/method'
+        update_mock.assert_once_called_with(final_path,
+                                            vendor_passthru_args,
+                                            method='POST')

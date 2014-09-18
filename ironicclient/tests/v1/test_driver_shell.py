@@ -1,4 +1,4 @@
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2014 Hewlett-Packard Development Company, L.P.
 #
@@ -16,7 +16,7 @@
 
 import mock
 
-from ironicclient.common import utils as common_utils
+from ironicclient.openstack.common import cliutils
 from ironicclient.tests import utils
 import ironicclient.v1.driver_shell as d_shell
 
@@ -25,9 +25,39 @@ class DriverShellTest(utils.BaseTestCase):
     def test_driver_show(self):
         actual = {}
         fake_print_dict = lambda data, *args, **kwargs: actual.update(data)
-        with mock.patch.object(common_utils, 'print_dict', fake_print_dict):
+        with mock.patch.object(cliutils, 'print_dict', fake_print_dict):
             driver = object()
             d_shell._print_driver_show(driver)
         exp = ['hosts', 'name']
         act = actual.keys()
         self.assertEqual(sorted(exp), sorted(act))
+
+    def test_do_driver_vendor_passthru_with_args(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.driver_name = 'driver_name'
+        args.method = 'method'
+        args.arguments = [['arg1=val1', 'arg2=val2']]
+
+        d_shell.do_driver_vendor_passthru(client_mock, args)
+        kwargs = {
+                  'driver_name': 'driver_name',
+                  'method': 'method',
+                  'args': {'arg1': 'val1', 'arg2': 'val2'}
+                  }
+        client_mock.driver.vendor_passthru.assert_called_once_with(**kwargs)
+
+    def test_do_driver_vendor_passthru_without_args(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.driver_name = 'driver_name'
+        args.method = 'method'
+        args.arguments = [[]]
+
+        d_shell.do_driver_vendor_passthru(client_mock, args)
+        kwargs = {
+                  'driver_name': 'driver_name',
+                  'method': 'method',
+                  'args': {}
+                  }
+        client_mock.driver.vendor_passthru.assert_called_once_with(**kwargs)
