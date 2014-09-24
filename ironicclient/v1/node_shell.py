@@ -19,29 +19,11 @@ import six
 
 from ironicclient.common import utils
 from ironicclient.openstack.common import cliutils
-
-
-FIELDS = ['chassis_uuid', 'created_at', 'console_enabled', 'driver',
-          'driver_info', 'extra', 'instance_info', 'instance_uuid',
-          'last_error', 'maintenance', 'power_state', 'properties',
-          'provision_state', 'reservation', 'target_power_state',
-          'target_provision_state', 'updated_at', 'uuid']
-
-FIELD_LABELS = ['Chassis UUID', 'Created At', 'Console Enabled', 'Driver',
-                'Driver Info', 'Extra', 'Instance Info', 'Instance UUID',
-                'Last Error', 'Maintenance', 'Power State', 'Properties',
-                'Provision State', 'Reservation', 'Target Power State',
-                'Target Provision State', 'Updated At', 'UUID']
-
-LIST_FIELDS = ['uuid', 'instance_uuid', 'power_state',
-               'provision_state', 'maintenance']
-
-LIST_FIELD_LABELS = ['UUID', 'Instance UUID', 'Power State',
-                     'Provisioning State', 'Maintenance']
+from ironicclient.v1 import resource_fields as res_fields
 
 
 def _print_node_show(node):
-    data = dict([(f, getattr(node, f, '')) for f in FIELDS])
+    data = dict([(f, getattr(node, f, '')) for f in res_fields.NODE_FIELDS])
     cliutils.print_dict(data, wrap=72)
 
 
@@ -75,6 +57,15 @@ def do_node_show(cc, args):
          'a previous request). Returns the list of nodes '
          'after this UUID.')
 @cliutils.arg(
+    '--sort-key',
+    metavar='<sort_key>',
+    help='Node field that will be used for sorting.')
+@cliutils.arg(
+    '--sort-dir',
+    metavar='<sort_dir>',
+    choices=['asc', 'desc'],
+    help='Sort direction: one of "asc" (the default) or "desc".')
+@cliutils.arg(
     '--maintenance',
     metavar='<maintenance>',
     choices=['true', 'True', 'false', 'False'],
@@ -97,20 +88,22 @@ def do_node_list(cc, args):
         params['associated'] = args.associated
     if args.maintenance is not None:
         params['maintenance'] = args.maintenance
-    if args.marker is not None:
-        params['marker'] = args.marker
-    if args.limit is not None:
-        params['limit'] = args.limit
     params['detail'] = args.detail
 
-    nodes = cc.node.list(**params)
     if args.detail:
-        cliutils.print_list(nodes, FIELDS, FIELD_LABELS, sortby_index=None)
+        fields = res_fields.NODE_FIELDS
+        field_labels = res_fields.NODE_FIELD_LABELS
     else:
-        cliutils.print_list(nodes,
-                            LIST_FIELDS,
-                            LIST_FIELD_LABELS,
-                            sortby_index=None)
+        fields = res_fields.NODE_LIST_FIELDS
+        field_labels = res_fields.NODE_LIST_FIELD_LABELS
+
+    params.update(utils.common_params_for_list(args,
+                                               fields,
+                                               field_labels))
+    nodes = cc.node.list(**params)
+    cliutils.print_list(nodes, fields,
+                        field_labels=field_labels,
+                        sortby_index=None)
 
 
 @cliutils.arg(
@@ -212,7 +205,12 @@ def do_node_vendor_passthru(cc, args):
     cc.node.vendor_passthru(**fields)
 
 
-@cliutils.arg('node', metavar='<node id>', help="UUID of node")
+@cliutils.arg(
+    '--detail',
+    dest='detail',
+    action='store_true',
+    default=False,
+    help="Show detailed information about ports.")
 @cliutils.arg(
     '--limit',
     metavar='<limit>',
@@ -226,19 +224,31 @@ def do_node_vendor_passthru(cc, args):
     help='Port UUID (e.g of the last port in the list from '
          'a previous request). Returns the list of ports '
          'after this UUID.')
+@cliutils.arg(
+    '--sort-key',
+    metavar='<sort_key>',
+    help='Port field that will be used for sorting.')
+@cliutils.arg(
+    '--sort-dir',
+    metavar='<sort_dir>',
+    choices=['asc', 'desc'],
+    help='Sort direction: one of "asc" (the default) or "desc".')
 @cliutils.arg('node', metavar='<node id>', help="UUID of node")
 def do_node_port_list(cc, args):
     """List the ports associated with the node."""
-    params = {}
-    if args.marker is not None:
-        params['marker'] = args.marker
-    if args.limit is not None:
-        params['limit'] = args.limit
+    if args.detail:
+        fields = res_fields.PORT_FIELDS
+        field_labels = res_fields.PORT_FIELD_LABELS
+    else:
+        fields = res_fields.PORT_LIST_FIELDS
+        field_labels = res_fields.PORT_LIST_FIELD_LABELS
+
+    params = utils.common_params_for_list(args, fields, field_labels)
 
     ports = cc.node.list_ports(args.node, **params)
-    field_labels = ['UUID', 'Address']
-    fields = ['uuid', 'address']
-    cliutils.print_list(ports, fields, field_labels, sortby_index=None)
+    cliutils.print_list(ports, fields,
+                        field_labels=field_labels,
+                        sortby_index=None)
 
 
 @cliutils.arg('node', metavar='<node id>', help="UUID of node")
@@ -256,8 +266,8 @@ def do_node_set_power_state(cc, args):
 @cliutils.arg(
     'provision_state',
     metavar='<provision state>',
-    choices=['active', 'deleted'],
-    help="Supported states: 'active' or 'deleted'")
+    choices=['active', 'deleted', 'rebuild'],
+    help="Supported states: 'active' or 'deleted' or 'rebuild'")
 def do_node_set_provision_state(cc, args):
     """Provision an instance on, or delete an instance from a node."""
     cc.node.set_provision_state(args.node, args.provision_state)
@@ -274,7 +284,7 @@ def do_node_validate(cc, args):
         obj_list.append(type('iface', (object,), data))
     field_labels = ['Interface', 'Result', 'Reason']
     fields = ['interface', 'result', 'reason']
-    cliutils.print_list(obj_list, fields, field_labels)
+    cliutils.print_list(obj_list, fields, field_labels=field_labels)
 
 
 @cliutils.arg('node', metavar='<node uuid>', help="UUID of node")

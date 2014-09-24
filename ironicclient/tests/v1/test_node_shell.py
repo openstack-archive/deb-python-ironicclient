@@ -49,6 +49,23 @@ class NodeShellTest(utils.BaseTestCase):
         act = actual.keys()
         self.assertEqual(sorted(exp), sorted(act))
 
+    def test_do_node_delete(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.node = ['node_uuid']
+
+        n_shell.do_node_delete(client_mock, args)
+        client_mock.node.delete.assert_called_once_with('node_uuid')
+
+    def test_do_node_delete_multiple(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.node = ['node_uuid1', 'node_uuid2']
+
+        n_shell.do_node_delete(client_mock, args)
+        client_mock.node.delete.assert_has_calls(
+            [mock.call('node_uuid1'), mock.call('node_uuid2')])
+
     def test_do_node_vendor_passthru_with_args(self):
         client_mock = mock.MagicMock()
         args = mock.MagicMock()
@@ -78,6 +95,36 @@ class NodeShellTest(utils.BaseTestCase):
                   'args': {}
                   }
         client_mock.node.vendor_passthru.assert_called_once_with(**kwargs)
+
+    def test_do_node_set_provision_state_active(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.node = 'node_uuid'
+        args.provision_state = 'active'
+
+        n_shell.do_node_set_provision_state(client_mock, args)
+        client_mock.node.set_provision_state.assert_called_once_with(
+            'node_uuid', 'active')
+
+    def test_do_node_set_provision_state_deleted(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.node = 'node_uuid'
+        args.provision_state = 'deleted'
+
+        n_shell.do_node_set_provision_state(client_mock, args)
+        client_mock.node.set_provision_state.assert_called_once_with(
+            'node_uuid', 'deleted')
+
+    def test_do_node_set_provision_state_rebuild(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.node = 'node_uuid'
+        args.provision_state = 'rebuild'
+
+        n_shell.do_node_set_provision_state(client_mock, args)
+        client_mock.node.set_provision_state.assert_called_once_with(
+            'node_uuid', 'rebuild')
 
     def test_do_node_set_boot_device(self):
         client_mock = mock.MagicMock()

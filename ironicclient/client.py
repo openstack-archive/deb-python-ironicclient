@@ -41,8 +41,15 @@ def _get_ksclient(**kwargs):
 
 def _get_endpoint(client, **kwargs):
     """Get an endpoint using the provided keystone client."""
+    attr = None
+    filter_value = None
+    if kwargs.get('region_name'):
+        attr = 'region'
+        filter_value = kwargs.get('region_name')
     return client.service_catalog.url_for(
         service_type=kwargs.get('service_type') or 'baremetal',
+        attr=attr,
+        filter_value=filter_value,
         endpoint_type=kwargs.get('endpoint_type') or 'publicURL')
 
 
@@ -86,6 +93,7 @@ def get_client(api_version, **kwargs):
                  if kwargs.get('os_auth_token')
                  else _ksclient.auth_token)
 
+        ks_kwargs['region_name'] = kwargs.get('os_region_name')
         endpoint = kwargs.get('ironic_url') or \
             _get_endpoint(_ksclient, **ks_kwargs)
 
@@ -94,7 +102,7 @@ def get_client(api_version, **kwargs):
     else:
         e = (_('Must provide Keystone credentials or user-defined endpoint '
                'and token'))
-        raise exc.AmbigiousAuthSystem(e)
+        raise exc.AmbiguousAuthSystem(e)
 
     cli_kwargs = {
         'token': token,

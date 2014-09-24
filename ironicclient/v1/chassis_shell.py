@@ -17,6 +17,7 @@
 
 from ironicclient.common import utils
 from ironicclient.openstack.common import cliutils
+from ironicclient.v1 import resource_fields as res_fields
 
 
 def _print_chassis_show(chassis):
@@ -33,6 +34,12 @@ def do_chassis_show(cc, args):
 
 
 @cliutils.arg(
+    '--detail',
+    dest='detail',
+    action='store_true',
+    default=False,
+    help="Show detailed information about chassis.")
+@cliutils.arg(
     '--limit',
     metavar='<limit>',
     type=int,
@@ -45,18 +52,30 @@ def do_chassis_show(cc, args):
     help='Chassis UUID (e.g of the last chassis in the list '
          'from a previous request). Returns the list of chassis '
          'after this UUID.')
+@cliutils.arg(
+    '--sort-key',
+    metavar='<sort_key>',
+    help='Chassis field that will be used for sorting.')
+@cliutils.arg(
+    '--sort-dir',
+    metavar='<sort_dir>',
+    choices=['asc', 'desc'],
+    help='Sort direction: one of "asc" (the default) or "desc".')
 def do_chassis_list(cc, args):
     """List chassis."""
-    params = {}
-    if args.marker is not None:
-        params['marker'] = args.marker
-    if args.limit is not None:
-        params['limit'] = args.limit
+    if args.detail:
+        fields = res_fields.CHASSIS_FIELDS
+        field_labels = res_fields.CHASSIS_FIELD_LABELS
+    else:
+        fields = res_fields.CHASSIS_LIST_FIELDS
+        field_labels = res_fields.CHASSIS_LIST_FIELD_LABELS
+
+    params = utils.common_params_for_list(args, fields, field_labels)
 
     chassis = cc.chassis.list(**params)
-    field_labels = ['UUID', 'Description']
-    fields = ['uuid', 'description']
-    cliutils.print_list(chassis, fields, field_labels, sortby_index=None)
+    cliutils.print_list(chassis, fields,
+                        field_labels=field_labels,
+                        sortby_index=None)
 
 
 @cliutils.arg(
@@ -116,6 +135,12 @@ def do_chassis_update(cc, args):
 
 
 @cliutils.arg(
+    '--detail',
+    dest='detail',
+    action='store_true',
+    default=False,
+    help="Show detailed information about nodes.")
+@cliutils.arg(
     '--limit',
     metavar='<limit>',
     type=int,
@@ -128,17 +153,28 @@ def do_chassis_update(cc, args):
     help='Node UUID (e.g of the last node in the list from '
          'a previous request). Returns the list of nodes '
          'after this UUID.')
+@cliutils.arg(
+    '--sort-key',
+    metavar='<sort_key>',
+    help='Node field that will be used for sorting.')
+@cliutils.arg(
+    '--sort-dir',
+    metavar='<sort_dir>',
+    choices=['asc', 'desc'],
+    help='Sort direction: one of "asc" (the default) or "desc".')
 @cliutils.arg('chassis', metavar='<chassis id>', help="UUID of chassis")
 def do_chassis_node_list(cc, args):
     """List the nodes contained in the chassis."""
-    params = {}
-    if args.marker is not None:
-        params['marker'] = args.marker
-    if args.limit is not None:
-        params['limit'] = args.limit
+    if args.detail:
+        fields = res_fields.NODE_FIELDS
+        field_labels = res_fields.NODE_FIELD_LABELS
+    else:
+        fields = res_fields.NODE_LIST_FIELDS
+        field_labels = res_fields.NODE_LIST_FIELD_LABELS
+
+    params = utils.common_params_for_list(args, fields, field_labels)
 
     nodes = cc.chassis.list_nodes(args.chassis, **params)
-    field_labels = ['UUID', 'Instance UUID',
-                    'Power State', 'Provisioning State']
-    fields = ['uuid', 'instance_uuid', 'power_state', 'provision_state']
-    cliutils.print_list(nodes, fields, field_labels, sortby_index=None)
+    cliutils.print_list(nodes, fields,
+                        field_labels=field_labels,
+                        sortby_index=None)

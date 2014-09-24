@@ -55,6 +55,13 @@ fake_responses = {
             CREATE_PORT,
         ),
     },
+    '/v1/ports/detail':
+    {
+        'GET': (
+            {},
+            {"ports": [PORT]},
+        ),
+    },
     '/v1/ports/%s' % PORT['uuid']:
     {
         'GET': (
@@ -68,6 +75,13 @@ fake_responses = {
         'PATCH': (
             {},
             UPDATED_PORT,
+        ),
+    },
+    '/v1/ports/detail?address=%s' % PORT['address']:
+    {
+        'GET': (
+            {},
+            {"ports": [PORT]},
         ),
     },
 }
@@ -97,6 +111,23 @@ fake_responses_pagination = {
     },
 }
 
+fake_responses_sorting = {
+    '/v1/ports/?sort_key=updated_at':
+    {
+        'GET': (
+            {},
+            {"ports": [PORT2, PORT]}
+        ),
+    },
+    '/v1/ports/?sort_dir=desc':
+    {
+        'GET': (
+            {},
+            {"ports": [PORT2, PORT]}
+        ),
+    },
+}
+
 
 class PortManagerTest(testtools.TestCase):
 
@@ -109,6 +140,14 @@ class PortManagerTest(testtools.TestCase):
         ports = self.mgr.list()
         expect = [
             ('GET', '/v1/ports', {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertEqual(1, len(ports))
+
+    def test_ports_list_detail(self):
+        ports = self.mgr.list(detail=True)
+        expect = [
+            ('GET', '/v1/ports/detail', {}, None),
         ]
         self.assertEqual(expect, self.api.calls)
         self.assertEqual(1, len(ports))
@@ -144,10 +183,41 @@ class PortManagerTest(testtools.TestCase):
         self.assertEqual(expect, self.api.calls)
         self.assertThat(ports, HasLength(2))
 
+    def test_ports_list_sort_key(self):
+        self.api = utils.FakeAPI(fake_responses_sorting)
+        self.mgr = ironicclient.v1.port.PortManager(self.api)
+        ports = self.mgr.list(sort_key='updated_at')
+        expect = [
+            ('GET', '/v1/ports/?sort_key=updated_at', {}, None)
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertEqual(2, len(ports))
+
+    def test_ports_list_sort_dir(self):
+        self.api = utils.FakeAPI(fake_responses_sorting)
+        self.mgr = ironicclient.v1.port.PortManager(self.api)
+        ports = self.mgr.list(sort_dir='desc')
+        expect = [
+            ('GET', '/v1/ports/?sort_dir=desc', {}, None)
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertEqual(2, len(ports))
+
     def test_ports_show(self):
         port = self.mgr.get(PORT['uuid'])
         expect = [
             ('GET', '/v1/ports/%s' % PORT['uuid'], {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertEqual(PORT['uuid'], port.uuid)
+        self.assertEqual(PORT['address'], port.address)
+        self.assertEqual(PORT['node_uuid'], port.node_uuid)
+
+    def test_ports_show_by_address(self):
+        port = self.mgr.get_by_address(PORT['address'])
+        expect = [
+            ('GET', '/v1/ports/detail?address=%s' % PORT['address'],
+             {}, None),
         ]
         self.assertEqual(expect, self.api.calls)
         self.assertEqual(PORT['uuid'], port.uuid)

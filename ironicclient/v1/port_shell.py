@@ -17,6 +17,7 @@
 
 from ironicclient.common import utils
 from ironicclient.openstack.common import cliutils
+from ironicclient.v1 import resource_fields as res_fields
 
 
 def _print_port_show(port):
@@ -27,12 +28,27 @@ def _print_port_show(port):
 
 
 @cliutils.arg('port', metavar='<port id>', help="UUID of port")
+@cliutils.arg(
+    '--address',
+    dest='address',
+    action='store_true',
+    default=False,
+    help='Get the port by it\'s MAC address instead of UUID.')
 def do_port_show(cc, args):
     """Show a port."""
-    port = cc.port.get(args.port)
+    if args.address:
+        port = cc.port.get_by_address(args.port)
+    else:
+        port = cc.port.get(args.port)
     _print_port_show(port)
 
 
+@cliutils.arg(
+    '--detail',
+    dest='detail',
+    action='store_true',
+    default=False,
+    help="Show detailed information about ports.")
 @cliutils.arg(
     '--limit',
     metavar='<limit>',
@@ -46,18 +62,30 @@ def do_port_show(cc, args):
     help='Port UUID (e.g of the last port in the list from '
          'a previous request). Returns the list of ports '
          'after this UUID.')
+@cliutils.arg(
+    '--sort-key',
+    metavar='<sort_key>',
+    help='Port field that will be used for sorting.')
+@cliutils.arg(
+    '--sort-dir',
+    metavar='<sort_dir>',
+    choices=['asc', 'desc'],
+    help='Sort direction: one of "asc" (the default) or "desc".')
 def do_port_list(cc, args):
     """List ports."""
-    params = {}
-    if args.marker is not None:
-        params['marker'] = args.marker
-    if args.limit is not None:
-        params['limit'] = args.limit
+    if args.detail:
+        fields = res_fields.PORT_FIELDS
+        field_labels = res_fields.PORT_FIELD_LABELS
+    else:
+        fields = res_fields.PORT_LIST_FIELDS
+        field_labels = res_fields.PORT_LIST_FIELD_LABELS
+
+    params = utils.common_params_for_list(args, fields, field_labels)
 
     port = cc.port.list(**params)
-    field_labels = ['UUID', 'Address']
-    fields = ['uuid', 'address']
-    cliutils.print_list(port, fields, field_labels, sortby_index=None)
+    cliutils.print_list(port, fields,
+                        field_labels=field_labels,
+                        sortby_index=None)
 
 
 @cliutils.arg(

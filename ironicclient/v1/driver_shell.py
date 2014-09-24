@@ -26,7 +26,7 @@ def _print_driver_show(driver):
 
 
 def do_driver_list(cc, args):
-    """List drivers."""
+    """List of enabled drivers."""
     drivers = cc.driver.list()
     # NOTE(lucasagomes): Separate each host by a comma.
     # It's easier to read.
@@ -34,7 +34,7 @@ def do_driver_list(cc, args):
         d.hosts = ', '.join(d.hosts)
     field_labels = ['Supported driver(s)', 'Active host(s)']
     fields = ['name', 'hosts']
-    cliutils.print_list(drivers, fields, field_labels)
+    cliutils.print_list(drivers, fields, field_labels=field_labels)
 
 
 @cliutils.arg('driver_name', metavar='<driver_name>',

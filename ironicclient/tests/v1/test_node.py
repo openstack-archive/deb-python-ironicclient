@@ -130,7 +130,7 @@ fake_responses = {
             {"nodes": [NODE2]},
         )
     },
-    '/v1/nodes/?instance_uuid=%s' % NODE2['instance_uuid']:
+    '/v1/nodes/detail?instance_uuid=%s' % NODE2['instance_uuid']:
     {
         'GET': (
             {},
@@ -160,6 +160,13 @@ fake_responses = {
         ),
     },
     '/v1/nodes/%s/ports' % NODE1['uuid']:
+    {
+        'GET': (
+            {},
+            {"ports": [PORT]},
+        ),
+    },
+    '/v1/nodes/%s/ports/detail' % NODE1['uuid']:
     {
         'GET': (
             {},
@@ -271,6 +278,37 @@ fake_responses_pagination = {
     },
 }
 
+fake_responses_sorting = {
+    '/v1/nodes/?sort_key=updated_at':
+    {
+        'GET': (
+            {},
+            {"nodes": [NODE2, NODE1]}
+        ),
+    },
+    '/v1/nodes/?sort_dir=desc':
+    {
+        'GET': (
+            {},
+            {"nodes": [NODE2, NODE1]}
+        ),
+    },
+    '/v1/nodes/%s/ports?sort_key=updated_at' % NODE1['uuid']:
+    {
+        'GET': (
+            {},
+            {"ports": [PORT]},
+        ),
+    },
+    '/v1/nodes/%s/ports?sort_dir=desc' % NODE1['uuid']:
+    {
+        'GET': (
+            {},
+            {"ports": [PORT]},
+        ),
+    },
+}
+
 
 class NodeManagerTest(testtools.TestCase):
 
@@ -314,6 +352,26 @@ class NodeManagerTest(testtools.TestCase):
         expect = [
             ('GET', '/v1/nodes', {}, None),
             ('GET', '/v1/nodes/?limit=1', {}, None)
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertEqual(2, len(nodes))
+
+    def test_node_list_sort_key(self):
+        self.api = utils.FakeAPI(fake_responses_sorting)
+        self.mgr = node.NodeManager(self.api)
+        nodes = self.mgr.list(sort_key='updated_at')
+        expect = [
+            ('GET', '/v1/nodes/?sort_key=updated_at', {}, None)
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertEqual(2, len(nodes))
+
+    def test_node_list_sort_dir(self):
+        self.api = utils.FakeAPI(fake_responses_sorting)
+        self.mgr = node.NodeManager(self.api)
+        nodes = self.mgr.list(sort_dir='desc')
+        expect = [
+            ('GET', '/v1/nodes/?sort_dir=desc', {}, None)
         ]
         self.assertEqual(expect, self.api.calls)
         self.assertEqual(2, len(nodes))
@@ -383,9 +441,8 @@ class NodeManagerTest(testtools.TestCase):
     def test_node_show_by_instance(self):
         node = self.mgr.get_by_instance_uuid(NODE2['instance_uuid'])
         expect = [
-            ('GET', '/v1/nodes/?instance_uuid=%s' % NODE2['instance_uuid'],
-                     {}, None),
-            ('GET', '/v1/nodes/%s' % NODE2['uuid'], {}, None),
+            ('GET', '/v1/nodes/detail?instance_uuid=%s' %
+             NODE2['instance_uuid'], {}, None),
         ]
         self.assertEqual(expect, self.api.calls)
         self.assertEqual(NODE2['uuid'], node.uuid)
@@ -449,6 +506,40 @@ class NodeManagerTest(testtools.TestCase):
         ]
         self.assertEqual(expect, self.api.calls)
         self.assertThat(ports, HasLength(1))
+
+    def test_node_port_list_sort_key(self):
+        self.api = utils.FakeAPI(fake_responses_sorting)
+        self.mgr = node.NodeManager(self.api)
+        ports = self.mgr.list_ports(NODE1['uuid'], sort_key='updated_at')
+        expect = [
+            ('GET', '/v1/nodes/%s/ports?sort_key=updated_at' % NODE1['uuid'],
+             {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertThat(ports, HasLength(1))
+        self.assertEqual(PORT['uuid'], ports[0].uuid)
+        self.assertEqual(PORT['address'], ports[0].address)
+
+    def test_node_port_list_sort_dir(self):
+        self.api = utils.FakeAPI(fake_responses_sorting)
+        self.mgr = node.NodeManager(self.api)
+        ports = self.mgr.list_ports(NODE1['uuid'], sort_dir='desc')
+        expect = [
+            ('GET', '/v1/nodes/%s/ports?sort_dir=desc' % NODE1['uuid'],
+             {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertThat(ports, HasLength(1))
+        self.assertEqual(PORT['uuid'], ports[0].uuid)
+        self.assertEqual(PORT['address'], ports[0].address)
+
+    def test_node_port_list_detail(self):
+        ports = self.mgr.list_ports(NODE1['uuid'], detail=True)
+        expect = [
+            ('GET', '/v1/nodes/%s/ports/detail' % NODE1['uuid'], {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertEqual(1, len(ports))
 
     def test_node_set_power_state(self):
         power_state = self.mgr.set_power_state(NODE1['uuid'], "on")
