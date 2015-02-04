@@ -1,3 +1,9 @@
+python-ironicclient (0.3.3-1) experimental; urgency=medium
+
+  * New upstream release.
+
+ -- Thomas Goirand <zigo@debian.org>  Wed, 04 Feb 2015 11:56:52 +0100
+
 python-ironicclient (0.3.0-1) experimental; urgency=medium
 
   * New upstream release.
