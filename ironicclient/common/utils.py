@@ -18,6 +18,7 @@
 from __future__ import print_function
 
 import argparse
+import json
 
 from ironicclient import exc
 from ironicclient.openstack.common import importutils
@@ -54,9 +55,8 @@ def define_command(subparsers, command, callback, cmd_mapper):
 
 
 def define_commands_from_module(subparsers, command_module, cmd_mapper):
-    '''Find all methods beginning with 'do_' in a module, and add them
-    as commands into a subparsers collection.
-    '''
+    """Add *do_* methods in a module and add as commands into a subparsers."""
+
     for method_name in (a for a in dir(command_module) if a.startswith('do_')):
         # Commands should be hypen-separated instead of underscores.
         command = method_name[3:].replace('_', '-')
@@ -71,16 +71,32 @@ def import_versioned_module(version, submodule=None):
     return importutils.import_module(module)
 
 
+def split_and_deserialize(string):
+    """Split and try to JSON deserialize a string.
+
+    Gets a string with the KEY=VALUE format, split it (using '=' as the
+    separator) and try to JSON deserialize the VALUE.
+
+    :returns: A tuple of (key, value).
+    """
+    try:
+        key, value = string.split("=", 1)
+    except ValueError:
+        raise exc.CommandError(_('Attributes must be a list of '
+                                 'PATH=VALUE not "%s"') % string)
+    try:
+        value = json.loads(value)
+    except ValueError:
+        pass
+
+    return (key, value)
+
+
 def args_array_to_dict(kwargs, key_to_convert):
     values_to_convert = kwargs.get(key_to_convert)
     if values_to_convert:
-        try:
-            kwargs[key_to_convert] = dict(v.split("=", 1)
-                                          for v in values_to_convert)
-        except ValueError:
-            raise exc.CommandError(
-                _('%(key)s must be a list of KEY=VALUE not "%(values)s"') %
-                {'key': key_to_convert, 'values': values_to_convert})
+        kwargs[key_to_convert] = dict(split_and_deserialize(v)
+                                      for v in values_to_convert)
     return kwargs
 
 
@@ -92,12 +108,9 @@ def args_array_to_patch(op, attributes):
             attr = '/' + attr
 
         if op in ['add', 'replace']:
-            try:
-                path, value = attr.split("=", 1)
-                patch.append({'op': op, 'path': path, 'value': value})
-            except ValueError:
-                raise exc.CommandError(_('Attributes must be a list of '
-                                         'PATH=VALUE not "%s"') % attr)
+            path, value = split_and_deserialize(attr)
+            patch.append({'op': op, 'path': path, 'value': value})
+
         elif op == "remove":
             # For remove only the key is needed
             patch.append({'op': op, 'path': attr})
@@ -107,10 +120,20 @@ def args_array_to_patch(op, attributes):
 
 
 def common_params_for_list(args, fields, field_labels):
+    """Generate 'params' dict that is common for every 'list' command.
+
+    :param args: arguments from command line.
+    :param fields: possible fields for sorting.
+    :param field_labels: possible field labels for sorting.
+    :returns: a dict with params to pass to the client method.
+    """
     params = {}
     if args.marker is not None:
         params['marker'] = args.marker
     if args.limit is not None:
+        if args.limit < 0:
+            raise exc.CommandError(
+                _('Expected non-negative --limit, got %s') % args.limit)
         params['limit'] = args.limit
 
     if args.sort_key is not None:
@@ -121,16 +144,16 @@ def common_params_for_list(args, fields, field_labels):
             sort_key = fields_map[args.sort_key]
         except KeyError:
             raise exc.CommandError(
-                _("%(sort_key)s is not a valid field for sorting, "
-                  "valid are %(valid)s") %
+                _("%(sort_key)s is an invalid field for sorting, "
+                  "valid values for --sort-key are: %(valid)s") %
                 {'sort_key': args.sort_key,
                  'valid': list(fields_map)})
         params['sort_key'] = sort_key
     if args.sort_dir is not None:
         if args.sort_dir not in ('asc', 'desc'):
             raise exc.CommandError(
-                _("%s is not valid value for sort direction, "
-                  "valid are 'asc' and 'desc'") %
+                _("%s is an invalid value for sort direction, "
+                  "valid values for --sort-dir are: 'asc', 'desc'") %
                 args.sort_dir)
         params['sort_dir'] = args.sort_dir
 
@@ -139,7 +162,15 @@ def common_params_for_list(args, fields, field_labels):
     return params
 
 
-def common_filters(marker, limit, sort_key, sort_dir):
+def common_filters(marker=None, limit=None, sort_key=None, sort_dir=None):
+    """Generate common filters for any list request.
+
+    :param marker: entity ID from which to start returning entities.
+    :param limit: maximum number of entities to return.
+    :param sort_key: field to use for sorting.
+    :param sort_dir: direction of sorting: 'asc' or 'desc'.
+    :returns: list of string filters.
+    """
     filters = []
     if isinstance(limit, int) and limit > 0:
         filters.append('limit=%s' % limit)

@@ -17,6 +17,7 @@
 
 import copy
 import datetime
+
 import fixtures
 import six
 import testtools
@@ -69,7 +70,9 @@ class FakeConnection(object):
 class FakeResponse(object):
     def __init__(self, headers, body=None, version=None, status=None,
                  reason=None):
-        """:param headers: dict representing HTTP response headers
+        """Fake object to help testing.
+
+        :param headers: dict representing HTTP response headers
         :param body: file-like object
         """
         self.headers = headers
@@ -108,3 +111,23 @@ class FakeKeystone():
                           '%Y-%m-%dT%H:%M:%S.%f'),
                       'id': 'd1a541311782870742235'}
         }
+
+
+class FakeSessionResponse():
+
+    def __init__(self, headers, content=None, status_code=None):
+        self.headers = headers
+        self.content = content
+        self.status_code = status_code
+
+
+class FakeSession():
+
+    def __init__(self, headers, content=None, status_code=None):
+        self.headers = headers
+        self.content = content
+        self.status_code = status_code
+
+    def request(self, url, method, **kwargs):
+        return FakeSessionResponse(self.headers, self.content,
+                                 self.status_code)

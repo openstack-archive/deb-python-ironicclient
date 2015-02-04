@@ -18,6 +18,7 @@
 import six
 
 from ironicclient.common import utils
+from ironicclient.openstack.common.apiclient import exceptions
 from ironicclient.openstack.common import cliutils
 from ironicclient.v1 import resource_fields as res_fields
 
@@ -133,10 +134,14 @@ def do_node_list(cc, args):
     action='append',
     help="Record arbitrary key/value metadata. "
          "Can be specified multiple times")
+@cliutils.arg(
+    '-u', '--uuid',
+    metavar='<uuid>',
+    help="Unique UUID for the node")
 def do_node_create(cc, args):
     """Register a new node with the Ironic service."""
     field_list = ['chassis_uuid', 'driver', 'driver_info',
-                  'properties', 'extra']
+                  'properties', 'extra', 'uuid']
     fields = dict((k, v) for (k, v) in vars(args).items()
                   if k in field_list and not (v is None))
     fields = utils.args_array_to_dict(fields, 'driver_info')
@@ -144,7 +149,6 @@ def do_node_create(cc, args):
     fields = utils.args_array_to_dict(fields, 'properties')
     node = cc.node.create(**fields)
 
-    field_list.append('uuid')
     data = dict([(f, getattr(node, f, '')) for f in field_list])
     cliutils.print_dict(data, wrap=72)
 
@@ -179,30 +183,39 @@ def do_node_update(cc, args):
 
 
 @cliutils.arg('node',
-           metavar='<node id>',
-           help="UUID of node")
+    metavar='<node id>',
+    help="UUID of node")
 @cliutils.arg('method',
-           metavar='<method>',
-           help="vendor-passthru method to be called")
+    metavar='<method>',
+    help="vendor-passthru method to be called")
 @cliutils.arg('arguments',
-           metavar='<arg=value>',
-           nargs='*',
-           action='append',
-           default=[],
-           help="arguments to be passed to vendor-passthru method")
+    metavar='<arg=value>',
+    nargs='*',
+    action='append',
+    default=[],
+    help="arguments to be passed to vendor-passthru method")
+@cliutils.arg('--http_method',
+    metavar='<http_method>',
+    choices=['POST', 'PUT', 'GET', 'DELETE', 'PATCH'],
+    help="The HTTP method to use in the request. Valid HTTP "
+         "methods are: 'POST', 'PUT', 'GET', 'DELETE', 'PATCH'. "
+         "Defaults to 'POST'.")
 def do_node_vendor_passthru(cc, args):
     """Call a vendor-passthru extension for a node."""
-    fields = {}
-    fields['node_id'] = args.node
-    fields['method'] = args.method
-    fields['args'] = args.arguments[0]
-    fields = utils.args_array_to_dict(fields, 'args')
+    arguments = utils.args_array_to_dict({'args': args.arguments[0]},
+                                          'args')['args']
 
-    # If there were no arguments for the method, fields['args'] will still
+    # If there were no arguments for the method, arguments will still
     # be an empty list. So make it an empty dict.
-    if not fields['args']:
-        fields['args'] = {}
-    cc.node.vendor_passthru(**fields)
+    if not arguments:
+        arguments = {}
+
+    resp = cc.node.vendor_passthru(args.node, args.method,
+                                   http_method=args.http_method,
+                                   args=arguments)
+    if resp:
+        # Print the raw response we don't know how it should be formated
+        print(str(resp.to_dict()))
 
 
 @cliutils.arg(
@@ -216,8 +229,8 @@ def do_node_vendor_passthru(cc, args):
     metavar='<limit>',
     type=int,
     help='Maximum number of ports to return per request, '
-          '0 for no limit. Default is the maximum number used '
-          'by the Ironic API Service.')
+         '0 for no limit. Default is the maximum number used '
+         'by the Ironic API Service.')
 @cliutils.arg(
     '--marker',
     metavar='<marker>',
@@ -253,12 +266,33 @@ def do_node_port_list(cc, args):
 
 @cliutils.arg('node', metavar='<node id>', help="UUID of node")
 @cliutils.arg(
+    'maintenance_mode',
+    metavar='<maintenance mode>',
+    choices=['on', 'off'],
+    help="Supported states: 'on' or 'off'")
+@cliutils.arg(
+    '--reason',
+    metavar='<reason>',
+    default=None,
+    help=('The reason for setting maintenance mode to "on"; not valid when '
+           'setting to "off".'))
+def do_node_set_maintenance(cc, args):
+    """Set maintenance mode on or off."""
+    if args.reason and args.maintenance_mode == 'off':
+        raise exceptions.CommandError(_('Cannot set "reason" when turning off '
+                                        'maintenance mode.'))
+    cc.node.set_maintenance(args.node, args.maintenance_mode,
+                            maint_reason=args.reason)
+
+
+@cliutils.arg('node', metavar='<node id>', help="UUID of node")
+@cliutils.arg(
     'power_state',
     metavar='<power state>',
     choices=['on', 'off', 'reboot'],
     help="Supported states: 'on' or 'off' or 'reboot'")
 def do_node_set_power_state(cc, args):
-    """Power the node on or off."""
+    """Power the node on or off or reboot."""
     cc.node.set_power_state(args.node, args.power_state)
 
 
@@ -269,7 +303,7 @@ def do_node_set_power_state(cc, args):
     choices=['active', 'deleted', 'rebuild'],
     help="Supported states: 'active' or 'deleted' or 'rebuild'")
 def do_node_set_provision_state(cc, args):
-    """Provision an instance on, or delete an instance from a node."""
+    """Provision, rebuild or delete an instance."""
     cc.node.set_provision_state(args.node, args.provision_state)
 
 

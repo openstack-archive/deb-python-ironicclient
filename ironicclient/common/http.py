@@ -22,6 +22,7 @@ import os
 import socket
 import ssl
 
+from keystoneclient import adapter
 import six
 import six.moves.urllib.parse as urlparse
 
@@ -35,10 +36,30 @@ CHUNKSIZE = 1024 * 64  # 64kB
 API_VERSION = '/v1'
 
 
+def _trim_endpoint_api_version(url):
+    """Trim API version and trailing slash from endpoint."""
+    return url.rstrip('/').rstrip(API_VERSION)
+
+
+def _extract_error_json(body):
+    """Return  error_message from the HTTP response body."""
+    error_json = {}
+    try:
+        body_json = json.loads(body)
+        if 'error_message' in body_json:
+            raw_msg = body_json['error_message']
+            error_json = json.loads(raw_msg)
+    except ValueError:
+        pass
+
+    return error_json
+
+
 class HTTPClient(object):
 
     def __init__(self, endpoint, **kwargs):
         self.endpoint = endpoint
+        self.endpoint_trimmed = _trim_endpoint_api_version(endpoint)
         self.auth_token = kwargs.get('token')
         self.auth_ref = kwargs.get('auth_ref')
         self.connection_params = self.get_connection_params(endpoint, **kwargs)
@@ -47,9 +68,7 @@ class HTTPClient(object):
     def get_connection_params(endpoint, **kwargs):
         parts = urlparse.urlparse(endpoint)
 
-        # trim API version and trailing slash from endpoint
-        path = parts.path
-        path = path.rstrip('/').rstrip(API_VERSION)
+        path = _trim_endpoint_api_version(parts.path)
 
         _args = (parts.hostname, parts.port, path)
         _kwargs = {'timeout': (float(kwargs.get('timeout'))
@@ -100,7 +119,7 @@ class HTTPClient(object):
         if 'body' in kwargs:
             curl.append('-d \'%s\'' % kwargs['body'])
 
-        curl.append('%s%s' % (self.endpoint, url))
+        curl.append(urlparse.urljoin(self.endpoint_trimmed, url))
         LOG.debug(' '.join(curl))
 
     @staticmethod
@@ -117,18 +136,6 @@ class HTTPClient(object):
         (_class, _args, _kwargs) = self.connection_params
         base_url = _args[2]
         return '%s/%s' % (base_url, url.lstrip('/'))
-
-    def _extract_error_json(self, body):
-        error_json = {}
-        try:
-            body_json = json.loads(body)
-            if 'error_message' in body_json:
-                raw_msg = body_json['error_message']
-                error_json = json.loads(raw_msg)
-        except ValueError:
-            return {}
-
-        return error_json
 
     def _http_request(self, url, method, **kwargs):
         """Send an http request with the specified characteristics.
@@ -172,7 +179,7 @@ class HTTPClient(object):
 
         if 400 <= resp.status < 600:
             LOG.warn("Request returned failure status.")
-            error_json = self._extract_error_json(body_str)
+            error_json = _extract_error_json(body_str)
             raise exc.from_response(
                 resp, error_json.get('faultstring'),
                 error_json.get('debuginfo'), method, url)
@@ -239,6 +246,7 @@ class VerifiedHTTPSConnection(six.moves.http_client.HTTPSConnection):
 
     def connect(self):
         """Connect to a host on a given (SSL) port.
+
         If ca_file is pointing somewhere, use it to check Server Certificate.
 
         Redefined/copied and extended from httplib.py:1105 (Python 2.6.x).
@@ -279,6 +287,64 @@ class VerifiedHTTPSConnection(six.moves.http_client.HTTPSConnection):
         return None
 
 
+class SessionClient(adapter.LegacyJsonAdapter):
+    """HTTP client based on Keystone client session."""
+
+    def _http_request(self, url, method, **kwargs):
+        kwargs.setdefault('user_agent', USER_AGENT)
+        kwargs.setdefault('auth', self.auth)
+
+        endpoint_filter = kwargs.setdefault('endpoint_filter', {})
+        endpoint_filter.setdefault('interface', self.interface)
+        endpoint_filter.setdefault('service_type', self.service_type)
+        endpoint_filter.setdefault('region_name', self.region_name)
+
+        resp = self.session.request(url, method,
+                                    raise_exc=False, **kwargs)
+
+        if 400 <= resp.status_code < 600:
+            error_json = _extract_error_json(resp.content)
+            raise exc.from_response(resp, error_json.get('faultstring'),
+                error_json.get('debuginfo'), method, url)
+        elif resp.status_code in (301, 302, 305):
+            # Redirected. Reissue the request to the new location.
+            location = resp.headers.get('location')
+            resp = self._http_request(location, method, **kwargs)
+        elif resp.status_code == 300:
+            raise exc.from_response(resp, method=method, url=url)
+        return resp
+
+    def json_request(self, method, url, **kwargs):
+        kwargs.setdefault('headers', {})
+        kwargs['headers'].setdefault('Content-Type', 'application/json')
+        kwargs['headers'].setdefault('Accept', 'application/json')
+
+        if 'body' in kwargs:
+            kwargs['data'] = json.dumps(kwargs.pop('body'))
+
+        resp = self._http_request(url, method, **kwargs)
+        body = resp.content
+        content_type = resp.headers.get('content-type', None)
+        status = resp.status_code
+        if status == 204 or status == 205 or content_type is None:
+            return resp, list()
+        if 'application/json' in content_type:
+            try:
+                body = resp.json()
+            except ValueError:
+                LOG.error('Could not decode response body as JSON')
+        else:
+            body = None
+
+        return resp, body
+
+    def raw_request(self, method, url, **kwargs):
+        kwargs.setdefault('headers', {})
+        kwargs['headers'].setdefault('Content-Type',
+                                     'application/octet-stream')
+        return self._http_request(url, method, **kwargs)
+
+
 class ResponseBodyIterator(object):
     """A class that acts as an iterator over an HTTP response."""
 
@@ -295,3 +361,22 @@ class ResponseBodyIterator(object):
             return chunk
         else:
             raise StopIteration()
+
+
+def _construct_http_client(*args, **kwargs):
+    session = kwargs.pop('session', None)
+    auth = kwargs.pop('auth', None)
+
+    if session:
+        service_type = kwargs.pop('service_type', 'baremetal')
+        interface = kwargs.pop('endpoint_type', None)
+        region_name = kwargs.pop('region_name', None)
+        return SessionClient(session=session,
+                             auth=auth,
+                             interface=interface,
+                             service_type=service_type,
+                             region_name=region_name,
+                             service_name=None,
+                             user_agent='python-ironicclient')
+    else:
+        return HTTPClient(*args, **kwargs)
