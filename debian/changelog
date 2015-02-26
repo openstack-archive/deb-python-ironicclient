@@ -1,6 +1,7 @@
 python-ironicclient (0.4.1-1) UNRELEASED; urgency=medium
 
   * New upstream release.
+  * Fixed (build-)depends for this release.
 
  -- Thomas Goirand <zigo@debian.org>  Thu, 26 Feb 2015 10:09:42 +0100
 
