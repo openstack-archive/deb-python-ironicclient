@@ -35,6 +35,7 @@ class NodeShellTest(utils.BaseTestCase):
                'console_enabled',
                'driver',
                'driver_info',
+               'driver_internal_info',
                'extra',
                'instance_info',
                'instance_uuid',
@@ -171,6 +172,42 @@ class NodeShellTest(utils.BaseTestCase):
         # assert get() wasn't called
         self.assertFalse(client_mock.node.get.called)
 
+    def test_do_node_set_maintenance_true(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.node = 'node_uuid'
+        args.maintenance_mode = 'true'
+        args.reason = 'reason'
+
+        n_shell.do_node_set_maintenance(client_mock, args)
+        client_mock.node.set_maintenance.assert_called_once_with('node_uuid',
+            'true',
+            maint_reason='reason')
+
+    def test_do_node_set_maintenance_false(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.node = 'node_uuid'
+        args.maintenance_mode = 'false'
+        # NOTE(jroll) None is the default. <3 mock.
+        args.reason = None
+
+        n_shell.do_node_set_maintenance(client_mock, args)
+        client_mock.node.set_maintenance.assert_called_once_with('node_uuid',
+            'false',
+            maint_reason=None)
+
+    def test_do_node_set_maintenance_false_with_reason_fails(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.node = 'node_uuid'
+        args.maintenance_mode = 'false'
+        args.reason = 'reason'
+
+        self.assertRaises(exceptions.CommandError,
+                          n_shell.do_node_set_maintenance,
+                          client_mock, args)
+
     def test_do_node_set_maintenance_on(self):
         client_mock = mock.MagicMock()
         args = mock.MagicMock()
@@ -256,30 +293,45 @@ class NodeShellTest(utils.BaseTestCase):
         args = mock.MagicMock()
         args.node = 'node_uuid'
         args.provision_state = 'active'
+        args.config_drive = 'foo'
 
         n_shell.do_node_set_provision_state(client_mock, args)
         client_mock.node.set_provision_state.assert_called_once_with(
-            'node_uuid', 'active')
+            'node_uuid', 'active', configdrive='foo')
 
     def test_do_node_set_provision_state_deleted(self):
         client_mock = mock.MagicMock()
         args = mock.MagicMock()
         args.node = 'node_uuid'
         args.provision_state = 'deleted'
+        args.config_drive = None
 
         n_shell.do_node_set_provision_state(client_mock, args)
         client_mock.node.set_provision_state.assert_called_once_with(
-            'node_uuid', 'deleted')
+            'node_uuid', 'deleted', configdrive=None)
 
     def test_do_node_set_provision_state_rebuild(self):
         client_mock = mock.MagicMock()
         args = mock.MagicMock()
         args.node = 'node_uuid'
         args.provision_state = 'rebuild'
+        args.config_drive = None
 
         n_shell.do_node_set_provision_state(client_mock, args)
         client_mock.node.set_provision_state.assert_called_once_with(
-            'node_uuid', 'rebuild')
+            'node_uuid', 'rebuild', configdrive=None)
+
+    def test_do_node_set_provision_state_not_active_fails(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.node = 'node_uuid'
+        args.provision_state = 'deleted'
+        args.config_drive = 'foo'
+
+        self.assertRaises(exceptions.CommandError,
+                          n_shell.do_node_set_provision_state,
+                          client_mock, args)
+        self.assertFalse(client_mock.node.set_provision_state.called)
 
     def test_do_node_set_boot_device(self):
         client_mock = mock.MagicMock()

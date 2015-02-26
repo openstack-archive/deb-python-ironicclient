@@ -14,6 +14,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import os
+
 from ironicclient.common import base
 from ironicclient.common import utils
 from ironicclient import exc
@@ -196,10 +198,10 @@ class NodeManager(base.Manager):
 
     def set_maintenance(self, node_id, state, maint_reason=None):
         path = "%s/maintenance" % node_id
-        if state == 'on':
+        if state in ('true', 'on'):
             reason = {'reason': maint_reason}
             return self._update(self._path(path), reason, method='PUT')
-        if state == 'off':
+        if state in ('false', 'off'):
             return self._delete(self._path(path))
 
     def set_power_state(self, node_id, state):
@@ -215,10 +217,15 @@ class NodeManager(base.Manager):
         path = "%s/validate" % node_uuid
         return self.get(path)
 
-    def set_provision_state(self, node_uuid, state):
+    def set_provision_state(self, node_uuid, state, configdrive=None):
         path = "%s/states/provision" % node_uuid
-        target = {'target': state}
-        return self._update(self._path(path), target, method='PUT')
+        body = {'target': state}
+        if configdrive:
+            if os.path.isfile(configdrive):
+                with open(configdrive, 'rb') as f:
+                    configdrive = f.read()
+            body['configdrive'] = configdrive
+        return self._update(self._path(path), body, method='PUT')
 
     def states(self, node_uuid):
         path = "%s/states" % node_uuid

@@ -268,20 +268,20 @@ def do_node_port_list(cc, args):
 @cliutils.arg(
     'maintenance_mode',
     metavar='<maintenance mode>',
-    choices=['on', 'off'],
-    help="Supported states: 'on' or 'off'")
+    choices=['true', 'True', 'false', 'False', 'on', 'off'],
+    help="Supported states: 'true' or 'false'; 'on' or 'off'")
 @cliutils.arg(
     '--reason',
     metavar='<reason>',
     default=None,
-    help=('The reason for setting maintenance mode to "on"; not valid when '
-           'setting to "off".'))
+    help=('The reason for setting maintenance mode to "true" or "on";'
+          ' not valid when setting to "false" or "off".'))
 def do_node_set_maintenance(cc, args):
-    """Set maintenance mode on or off."""
-    if args.reason and args.maintenance_mode == 'off':
+    """Enable or disable maintenance mode for this node."""
+    if args.reason and args.maintenance_mode.lower() in ('false', 'off'):
         raise exceptions.CommandError(_('Cannot set "reason" when turning off '
                                         'maintenance mode.'))
-    cc.node.set_maintenance(args.node, args.maintenance_mode,
+    cc.node.set_maintenance(args.node, args.maintenance_mode.lower(),
                             maint_reason=args.reason)
 
 
@@ -302,9 +302,20 @@ def do_node_set_power_state(cc, args):
     metavar='<provision state>',
     choices=['active', 'deleted', 'rebuild'],
     help="Supported states: 'active' or 'deleted' or 'rebuild'")
+@cliutils.arg(
+    '--config-drive',
+    metavar='<config drive>',
+    default=None,
+    help=('A gzipped base64 encoded config drive string or the path '
+          'to the config drive file; Only valid when setting provision '
+          'state to "active".'))
 def do_node_set_provision_state(cc, args):
     """Provision, rebuild or delete an instance."""
-    cc.node.set_provision_state(args.node, args.provision_state)
+    if args.config_drive and args.provision_state != 'active':
+        raise exceptions.CommandError(_('--config-drive is only valid when '
+                                        'setting provision state to "active"'))
+    cc.node.set_provision_state(args.node, args.provision_state,
+                                configdrive=args.config_drive)
 
 
 @cliutils.arg('node', metavar='<node uuid>', help="UUID of node")
