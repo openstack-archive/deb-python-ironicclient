@@ -16,6 +16,7 @@
 #    under the License.
 
 from ironicclient.common import base
+from ironicclient.common.i18n import _
 from ironicclient import exc
 
 
@@ -79,4 +80,4 @@ class DriverManager(base.Manager):
             return self.get(path)
         else:
             raise exc.InvalidAttribute(
-                    _('Unknown HTTP method: %s') % http_method)
+                _('Unknown HTTP method: %s') % http_method)

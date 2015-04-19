@@ -16,6 +16,7 @@
 #    under the License.
 
 from ironicclient.common import http
+from ironicclient.common.http import DEFAULT_VER
 from ironicclient.v1 import chassis
 from ironicclient.v1 import driver
 from ironicclient.v1 import node
@@ -34,6 +35,12 @@ class Client(object):
 
     def __init__(self, *args, **kwargs):
         """Initialize a new client for the Ironic v1 API."""
+        # set the default API version header string, if none specified
+        if not kwargs.get('os_ironic_api_version'):
+            kwargs['os_ironic_api_version'] = DEFAULT_VER
+            kwargs['api_version_select_state'] = "default"
+        else:
+            kwargs['api_version_select_state'] = "user"
         self.http_client = http._construct_http_client(*args, **kwargs)
         self.chassis = chassis.ChassisManager(self.http_client)
         self.node = node.NodeManager(self.http_client)

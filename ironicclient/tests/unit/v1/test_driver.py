@@ -20,7 +20,7 @@ import testtools
 from testtools import matchers
 
 from ironicclient import exc
-from ironicclient.tests import utils
+from ironicclient.tests.unit import utils
 from ironicclient.v1 import driver
 
 
@@ -28,9 +28,9 @@ DRIVER1 = {'name': 'fake', 'hosts': ['fake-host1', 'fake-host2']}
 DRIVER2 = {'name': 'pxe_ipminative', 'hosts': ['fake-host1', 'fake-host2']}
 
 DRIVER2_PROPERTIES = {
-  "username": "username. Required.",
-  "password": "password. Optional.",
-  "address": "IP of the node. Required.",
+    "username": "username. Required.",
+    "password": "password. Optional.",
+    "address": "IP of the node. Required.",
 }
 
 fake_responses = {
@@ -96,10 +96,10 @@ class DriverManagerTest(testtools.TestCase):
         # anything to verify.
         vendor_passthru_args = {'arg1': 'val1'}
         kwargs = {
-                  'driver_name': 'driver_name',
-                  'method': 'method',
-                  'args': vendor_passthru_args
-                 }
+            'driver_name': 'driver_name',
+            'method': 'method',
+            'args': vendor_passthru_args
+            }
 
         final_path = 'driver_name/vendor_passthru/method'
         for http_method in ('POST', 'PUT', 'PATCH'):
@@ -113,10 +113,10 @@ class DriverManagerTest(testtools.TestCase):
     @mock.patch.object(driver.DriverManager, 'get')
     def test_vendor_passthru_get(self, get_mock):
         kwargs = {
-                  'driver_name': 'driver_name',
-                  'method': 'method',
-                  'http_method': 'GET',
-                 }
+            'driver_name': 'driver_name',
+            'method': 'method',
+            'http_method': 'GET',
+            }
 
         final_path = 'driver_name/vendor_passthru/method'
         self.mgr.vendor_passthru(**kwargs)
@@ -125,10 +125,10 @@ class DriverManagerTest(testtools.TestCase):
     @mock.patch.object(driver.DriverManager, 'delete')
     def test_vendor_passthru_delete(self, delete_mock):
         kwargs = {
-                  'driver_name': 'driver_name',
-                  'method': 'method',
-                  'http_method': 'DELETE',
-                 }
+            'driver_name': 'driver_name',
+            'method': 'method',
+            'http_method': 'DELETE',
+            }
 
         final_path = 'driver_name/vendor_passthru/method'
         self.mgr.vendor_passthru(**kwargs)
@@ -137,9 +137,9 @@ class DriverManagerTest(testtools.TestCase):
     @mock.patch.object(driver.DriverManager, 'delete')
     def test_vendor_passthru_unknown_http_method(self, delete_mock):
         kwargs = {
-                  'driver_name': 'driver_name',
-                  'method': 'method',
-                  'http_method': 'UNKNOWN',
-                 }
+            'driver_name': 'driver_name',
+            'method': 'method',
+            'http_method': 'UNKNOWN',
+            }
         self.assertRaises(exc.InvalidAttribute, self.mgr.vendor_passthru,
                           **kwargs)

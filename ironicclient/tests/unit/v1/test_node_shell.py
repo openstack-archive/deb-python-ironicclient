@@ -19,7 +19,7 @@ import mock
 from ironicclient.common import utils as commonutils
 from ironicclient.openstack.common.apiclient import exceptions
 from ironicclient.openstack.common import cliutils
-from ironicclient.tests import utils
+from ironicclient.tests.unit import utils
 import ironicclient.v1.node_shell as n_shell
 
 
@@ -42,6 +42,7 @@ class NodeShellTest(utils.BaseTestCase):
                'last_error',
                'maintenance',
                'maintenance_reason',
+               'name',
                'power_state',
                'properties',
                'provision_state',
@@ -49,6 +50,8 @@ class NodeShellTest(utils.BaseTestCase):
                'target_power_state',
                'target_provision_state',
                'updated_at',
+               'inspection_finished_at',
+               'inspection_started_at',
                'uuid']
         act = actual.keys()
         self.assertEqual(sorted(exp), sorted(act))
@@ -112,9 +115,7 @@ class NodeShellTest(utils.BaseTestCase):
         args.driver_info = ['arg1=val1', 'arg2=val2']
 
         n_shell.do_node_create(client_mock, args)
-        kwargs = {
-                  'driver_info': {'arg1': 'val1', 'arg2': 'val2'}
-                  }
+        kwargs = {'driver_info': {'arg1': 'val1', 'arg2': 'val2'}}
         client_mock.node.create.assert_called_once_with(**kwargs)
 
     def test_do_node_create_with_properties(self):
@@ -123,9 +124,7 @@ class NodeShellTest(utils.BaseTestCase):
         args.properties = ['arg1=val1', 'arg2=val2']
 
         n_shell.do_node_create(client_mock, args)
-        kwargs = {
-                  'properties': {'arg1': 'val1', 'arg2': 'val2'}
-                  }
+        kwargs = {'properties': {'arg1': 'val1', 'arg2': 'val2'}}
         client_mock.node.create.assert_called_once_with(**kwargs)
 
     def test_do_node_create_with_extra(self):
@@ -136,9 +135,9 @@ class NodeShellTest(utils.BaseTestCase):
 
         n_shell.do_node_create(client_mock, args)
         kwargs = {
-                  'driver': 'driver_name',
-                  'extra': {'arg1': 'val1', 'arg2': 'val2'}
-                  }
+            'driver': 'driver_name',
+            'extra': {'arg1': 'val1', 'arg2': 'val2'},
+        }
         client_mock.node.create.assert_called_once_with(**kwargs)
 
     def test_do_node_create_with_uuid(self):
@@ -148,6 +147,14 @@ class NodeShellTest(utils.BaseTestCase):
 
         n_shell.do_node_create(client_mock, args)
         client_mock.node.create.assert_called_once_with(uuid=args.uuid)
+
+    def test_do_node_create_with_name(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.name = 'node_name'
+
+        n_shell.do_node_create(client_mock, args)
+        client_mock.node.create.assert_called_once_with(name=args.name)
 
     def test_do_node_show(self):
         client_mock = mock.MagicMock()
@@ -180,9 +187,8 @@ class NodeShellTest(utils.BaseTestCase):
         args.reason = 'reason'
 
         n_shell.do_node_set_maintenance(client_mock, args)
-        client_mock.node.set_maintenance.assert_called_once_with('node_uuid',
-            'true',
-            maint_reason='reason')
+        client_mock.node.set_maintenance.assert_called_once_with(
+            'node_uuid', 'true', maint_reason='reason')
 
     def test_do_node_set_maintenance_false(self):
         client_mock = mock.MagicMock()
@@ -193,9 +199,8 @@ class NodeShellTest(utils.BaseTestCase):
         args.reason = None
 
         n_shell.do_node_set_maintenance(client_mock, args)
-        client_mock.node.set_maintenance.assert_called_once_with('node_uuid',
-            'false',
-            maint_reason=None)
+        client_mock.node.set_maintenance.assert_called_once_with(
+            'node_uuid', 'false', maint_reason=None)
 
     def test_do_node_set_maintenance_false_with_reason_fails(self):
         client_mock = mock.MagicMock()
@@ -216,9 +221,8 @@ class NodeShellTest(utils.BaseTestCase):
         args.reason = 'reason'
 
         n_shell.do_node_set_maintenance(client_mock, args)
-        client_mock.node.set_maintenance.assert_called_once_with('node_uuid',
-            'on',
-            maint_reason='reason')
+        client_mock.node.set_maintenance.assert_called_once_with(
+            'node_uuid', 'on', maint_reason='reason')
 
     def test_do_node_set_maintenance_off(self):
         client_mock = mock.MagicMock()
@@ -229,9 +233,8 @@ class NodeShellTest(utils.BaseTestCase):
         args.reason = None
 
         n_shell.do_node_set_maintenance(client_mock, args)
-        client_mock.node.set_maintenance.assert_called_once_with('node_uuid',
-            'off',
-            maint_reason=None)
+        client_mock.node.set_maintenance.assert_called_once_with(
+            'node_uuid', 'off', maint_reason=None)
 
     def test_do_node_set_maintenance_off_with_reason_fails(self):
         client_mock = mock.MagicMock()
@@ -273,8 +276,8 @@ class NodeShellTest(utils.BaseTestCase):
 
         n_shell.do_node_vendor_passthru(client_mock, args)
         client_mock.node.vendor_passthru.assert_called_once_with(
-                args.node, args.method, args={'arg1': 'val1', 'arg2': 'val2'},
-                http_method=args.http_method)
+            args.node, args.method, args={'arg1': 'val1', 'arg2': 'val2'},
+            http_method=args.http_method)
 
     def test_do_node_vendor_passthru_without_args(self):
         client_mock = mock.MagicMock()
@@ -286,7 +289,7 @@ class NodeShellTest(utils.BaseTestCase):
 
         n_shell.do_node_vendor_passthru(client_mock, args)
         client_mock.node.vendor_passthru.assert_called_once_with(
-                args.node, args.method, args={}, http_method=args.http_method)
+            args.node, args.method, args={}, http_method=args.http_method)
 
     def test_do_node_set_provision_state_active(self):
         client_mock = mock.MagicMock()
@@ -333,6 +336,39 @@ class NodeShellTest(utils.BaseTestCase):
                           client_mock, args)
         self.assertFalse(client_mock.node.set_provision_state.called)
 
+    def test_do_node_set_provision_state_inspect(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.node = 'node_uuid'
+        args.provision_state = 'inspect'
+        args.config_drive = None
+
+        n_shell.do_node_set_provision_state(client_mock, args)
+        client_mock.node.set_provision_state.assert_called_once_with(
+            'node_uuid', 'inspect', configdrive=None)
+
+    def test_do_node_set_provision_state_manage(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.node = 'node_uuid'
+        args.provision_state = 'manage'
+        args.config_drive = None
+
+        n_shell.do_node_set_provision_state(client_mock, args)
+        client_mock.node.set_provision_state.assert_called_once_with(
+            'node_uuid', 'manage', configdrive=None)
+
+    def test_do_node_set_provision_state_provide(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.node = 'node_uuid'
+        args.provision_state = 'provide'
+        args.config_drive = None
+
+        n_shell.do_node_set_provision_state(client_mock, args)
+        client_mock.node.set_provision_state.assert_called_once_with(
+            'node_uuid', 'provide', configdrive=None)
+
     def test_do_node_set_boot_device(self):
         client_mock = mock.MagicMock()
         args = mock.MagicMock()
@@ -342,7 +378,7 @@ class NodeShellTest(utils.BaseTestCase):
 
         n_shell.do_node_set_boot_device(client_mock, args)
         client_mock.node.set_boot_device.assert_called_once_with(
-                                                    'node_uuid', 'pxe', False)
+            'node_uuid', 'pxe', False)
 
     def test_do_node_get_boot_device(self):
         client_mock = mock.MagicMock()
@@ -359,4 +395,4 @@ class NodeShellTest(utils.BaseTestCase):
 
         n_shell.do_node_get_supported_boot_devices(client_mock, args)
         client_mock.node.get_supported_boot_devices.assert_called_once_with(
-                                                                   'node_uuid')
+            'node_uuid')

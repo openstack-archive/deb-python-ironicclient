@@ -17,8 +17,10 @@
 
 import copy
 import datetime
+import os
 
 import fixtures
+from oslo_utils import strutils
 import six
 import testtools
 
@@ -30,6 +32,15 @@ class BaseTestCase(testtools.TestCase):
     def setUp(self):
         super(BaseTestCase, self).setUp()
         self.useFixture(fixtures.FakeLogger())
+
+        # If enabled, stdout and/or stderr is captured and will appear in
+        # test results if that test fails.
+        if strutils.bool_from_string(os.environ.get('OS_STDOUT_CAPTURE')):
+            stdout = self.useFixture(fixtures.StringStream('stdout')).stream
+            self.useFixture(fixtures.MonkeyPatch('sys.stdout', stdout))
+        if strutils.bool_from_string(os.environ.get('OS_STDERR_CAPTURE')):
+            stderr = self.useFixture(fixtures.StringStream('stderr')).stream
+            self.useFixture(fixtures.MonkeyPatch('sys.stderr', stderr))
 
 
 class FakeAPI(object):
@@ -66,6 +77,9 @@ class FakeConnection(object):
     def getresponse(self):
         return self._response
 
+    def __repr__(self):
+        return ("FakeConnection(response=%s)" % (self._response))
+
 
 class FakeResponse(object):
     def __init__(self, headers, body=None, version=None, status=None,
@@ -90,8 +104,13 @@ class FakeResponse(object):
     def read(self, amt):
         return self.body.read(amt)
 
+    def __repr__(self):
+        return ("FakeResponse(%s, body=%s, version=%s, status=%s, reason=%s)" %
+                (self.headers, self.body, self.version, self.status,
+                 self.reason))
 
-class FakeServiceCatalog():
+
+class FakeServiceCatalog(object):
     def url_for(self, endpoint_type, service_type, attr=None,
                 filter_value=None):
         if attr == 'region' and filter_value:
@@ -100,7 +119,7 @@ class FakeServiceCatalog():
             return 'http://localhost:6385/v1/f14b41234'
 
 
-class FakeKeystone():
+class FakeKeystone(object):
     service_catalog = FakeServiceCatalog()
     timestamp = datetime.datetime.utcnow() + datetime.timedelta(days=5)
 
@@ -108,12 +127,12 @@ class FakeKeystone():
         self.auth_token = auth_token
         self.auth_ref = {
             'token': {'expires': FakeKeystone.timestamp.strftime(
-                          '%Y-%m-%dT%H:%M:%S.%f'),
+                      '%Y-%m-%dT%H:%M:%S.%f'),
                       'id': 'd1a541311782870742235'}
         }
 
 
-class FakeSessionResponse():
+class FakeSessionResponse(object):
 
     def __init__(self, headers, content=None, status_code=None):
         self.headers = headers
@@ -121,7 +140,7 @@ class FakeSessionResponse():
         self.status_code = status_code
 
 
-class FakeSession():
+class FakeSession(object):
 
     def __init__(self, headers, content=None, status_code=None):
         self.headers = headers
@@ -130,4 +149,4 @@ class FakeSession():
 
     def request(self, url, method, **kwargs):
         return FakeSessionResponse(self.headers, self.content,
-                                 self.status_code)
+                                   self.status_code)

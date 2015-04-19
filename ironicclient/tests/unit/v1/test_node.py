@@ -21,27 +21,29 @@ import mock
 import testtools
 from testtools.matchers import HasLength
 
+from ironicclient.common import utils as common_utils
 from ironicclient import exc
-from ironicclient.tests import utils
+from ironicclient.tests.unit import utils
 from ironicclient.v1 import node
 
 NODE1 = {'id': 123,
-        'uuid': '66666666-7777-8888-9999-000000000000',
-        'chassis_uuid': 'aaaaaaaa-1111-bbbb-2222-cccccccccccc',
-        'maintenance': False,
-        'driver': 'fake',
-        'driver_info': {'user': 'foo', 'password': 'bar'},
-        'properties': {'num_cpu': 4},
-        'extra': {}}
+         'uuid': '66666666-7777-8888-9999-000000000000',
+         'chassis_uuid': 'aaaaaaaa-1111-bbbb-2222-cccccccccccc',
+         'maintenance': False,
+         'driver': 'fake',
+         'driver_info': {'user': 'foo', 'password': 'bar'},
+         'properties': {'num_cpu': 4},
+         'name': 'fake-node-1',
+         'extra': {}}
 NODE2 = {'id': 456,
-        'uuid': '66666666-7777-8888-9999-111111111111',
-        'instance_uuid': '66666666-7777-8888-9999-222222222222',
-        'chassis_uuid': 'aaaaaaaa-1111-bbbb-2222-cccccccccccc',
-        'maintenance': True,
-        'driver': 'fake too',
-        'driver_info': {'user': 'foo', 'password': 'bar'},
-        'properties': {'num_cpu': 4},
-        'extra': {}}
+         'uuid': '66666666-7777-8888-9999-111111111111',
+         'instance_uuid': '66666666-7777-8888-9999-222222222222',
+         'chassis_uuid': 'aaaaaaaa-1111-bbbb-2222-cccccccccccc',
+         'maintenance': True,
+         'driver': 'fake too',
+         'driver_info': {'user': 'foo', 'password': 'bar'},
+         'properties': {'num_cpu': 4},
+         'extra': {}}
 PORT = {'id': 456,
         'uuid': '11111111-2222-3333-4444-555555555555',
         'node_id': 123,
@@ -163,6 +165,13 @@ fake_responses = {
         'GET': (
             {},
             NODE2,
+        ),
+    },
+    '/v1/nodes/%s' % NODE1['name']:
+    {
+        'GET': (
+            {},
+            NODE1,
         ),
     },
     '/v1/nodes/%s/ports' % NODE1['uuid']:
@@ -342,6 +351,10 @@ class NodeManagerTest(testtools.TestCase):
         self.assertEqual(expect, self.api.calls)
         self.assertEqual(2, len(nodes))
 
+    def test_node_list_shows_name(self):
+        nodes = self.mgr.list()
+        self.assertIsNotNone(getattr(nodes[0], 'name'))
+
     def test_node_list_limit(self):
         self.api = utils.FakeAPI(fake_responses_pagination)
         self.mgr = node.NodeManager(self.api)
@@ -463,6 +476,14 @@ class NodeManagerTest(testtools.TestCase):
         ]
         self.assertEqual(expect, self.api.calls)
         self.assertEqual(NODE2['uuid'], node.uuid)
+
+    def test_node_show_by_name(self):
+        node = self.mgr.get(NODE1['name'])
+        expect = [
+            ('GET', '/v1/nodes/%s' % NODE1['name'], {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertEqual(NODE1['uuid'], node.uuid)
 
     def test_create(self):
         node = self.mgr.create(**CREATE_NODE)
@@ -634,7 +655,7 @@ class NodeManagerTest(testtools.TestCase):
     def test_node_set_provision_state_with_configdrive(self):
         target_state = 'active'
         self.mgr.set_provision_state(NODE1['uuid'], target_state,
-            configdrive='foo')
+                                     configdrive='foo')
         body = {'target': target_state, 'configdrive': 'foo'}
         expect = [
             ('PUT', '/v1/nodes/%s/states/provision' % NODE1['uuid'], {}, body),
@@ -649,9 +670,26 @@ class NodeManagerTest(testtools.TestCase):
             f.write(file_content)
             f.flush()
             self.mgr.set_provision_state(NODE1['uuid'], target_state,
-                configdrive=f.name)
+                                         configdrive=f.name)
 
         body = {'target': target_state, 'configdrive': file_content}
+        expect = [
+            ('PUT', '/v1/nodes/%s/states/provision' % NODE1['uuid'], {}, body),
+        ]
+        self.assertEqual(expect, self.api.calls)
+
+    @mock.patch.object(common_utils, 'make_configdrive')
+    def test_node_set_provision_state_with_configdrive_dir(self,
+                                                           mock_configdrive):
+        mock_configdrive.return_value = 'fake-configdrive'
+        target_state = 'active'
+
+        with common_utils.tempdir() as dirname:
+            self.mgr.set_provision_state(NODE1['uuid'], target_state,
+                                         configdrive=dirname)
+            mock_configdrive.assert_called_once_with(dirname)
+
+        body = {'target': target_state, 'configdrive': 'fake-configdrive'}
         expect = [
             ('PUT', '/v1/nodes/%s/states/provision' % NODE1['uuid'], {}, body),
         ]
@@ -699,10 +737,10 @@ class NodeManagerTest(testtools.TestCase):
         # anything to verify.
         vendor_passthru_args = {'arg1': 'val1'}
         kwargs = {
-                  'node_id': 'node_uuid',
-                  'method': 'method',
-                  'args': vendor_passthru_args
-                 }
+            'node_id': 'node_uuid',
+            'method': 'method',
+            'args': vendor_passthru_args
+            }
 
         final_path = 'node_uuid/vendor_passthru/method'
         for http_method in ('POST', 'PUT', 'PATCH'):
@@ -716,10 +754,10 @@ class NodeManagerTest(testtools.TestCase):
     @mock.patch.object(node.NodeManager, 'get')
     def test_vendor_passthru_get(self, get_mock):
         kwargs = {
-                  'node_id': 'node_uuid',
-                  'method': 'method',
-                  'http_method': 'GET',
-                 }
+            'node_id': 'node_uuid',
+            'method': 'method',
+            'http_method': 'GET',
+            }
 
         final_path = 'node_uuid/vendor_passthru/method'
         self.mgr.vendor_passthru(**kwargs)
@@ -728,10 +766,10 @@ class NodeManagerTest(testtools.TestCase):
     @mock.patch.object(node.NodeManager, 'delete')
     def test_vendor_passthru_delete(self, delete_mock):
         kwargs = {
-                  'node_id': 'node_uuid',
-                  'method': 'method',
-                  'http_method': 'DELETE',
-                 }
+            'node_id': 'node_uuid',
+            'method': 'method',
+            'http_method': 'DELETE',
+            }
 
         final_path = 'node_uuid/vendor_passthru/method'
         self.mgr.vendor_passthru(**kwargs)
@@ -740,10 +778,10 @@ class NodeManagerTest(testtools.TestCase):
     @mock.patch.object(node.NodeManager, 'delete')
     def test_vendor_passthru_unknown_http_method(self, delete_mock):
         kwargs = {
-                  'node_id': 'node_uuid',
-                  'method': 'method',
-                  'http_method': 'UNKNOWN',
-                 }
+            'node_id': 'node_uuid',
+            'method': 'method',
+            'http_method': 'UNKNOWN',
+            }
         self.assertRaises(exc.InvalidAttribute, self.mgr.vendor_passthru,
                           **kwargs)
 

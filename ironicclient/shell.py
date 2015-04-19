@@ -34,12 +34,13 @@ import six.moves.urllib.parse as urlparse
 
 import ironicclient
 from ironicclient import client as iroclient
+from ironicclient.common.i18n import _
 from ironicclient.common import utils
 from ironicclient import exc
 from ironicclient.openstack.common import cliutils
-from ironicclient.openstack.common import gettextutils
 
-gettextutils.install('ironicclient')
+
+LATEST_API_VERSION = ('1', 'latest')
 
 
 class IronicShell(object):
@@ -186,9 +187,10 @@ class IronicShell(object):
 
         parser.add_argument('--ironic-api-version',
                             default=cliutils.env(
-                            'IRONIC_API_VERSION', default='1'),
-                            help='Defaults to env[IRONIC_API_VERSION] '
-                            'or 1')
+                                'IRONIC_API_VERSION', default='1'),
+                            help='Accepts 1.x (where "x" is microversion) '
+                                 'or "latest", Defaults to '
+                                 'env[IRONIC_API_VERSION] or 1')
 
         parser.add_argument('--ironic_api_version',
                             help=argparse.SUPPRESS)
@@ -209,7 +211,7 @@ class IronicShell(object):
                                  'Defaults to env[OS_SERVICE_ENDPOINT].')
 
         parser.add_argument('--os_endpoint',
-                             help=argparse.SUPPRESS)
+                            help=argparse.SUPPRESS)
 
         parser.add_argument('--os-endpoint-type',
                             default=cliutils.env('OS_ENDPOINT_TYPE'),
@@ -246,8 +248,8 @@ class IronicShell(object):
             httplib2.debuglevel = 1
         else:
             logging.basicConfig(
-                    format="%(levelname)s %(message)s",
-                    level=logging.CRITICAL)
+                format="%(levelname)s %(message)s",
+                level=logging.CRITICAL)
 
     def do_bash_completion(self):
         """Prints all of the commands and options for bash-completion."""
@@ -302,10 +304,11 @@ class IronicShell(object):
         auth_token = kwargs.pop('auth_token', None)
         if auth_token:
             return v2_auth.Token(v2_auth_url, auth_token,
-                tenant_id=kwargs.pop('project_id', None),
-                tenant_name=kwargs.pop('project_name', None))
+                                 tenant_id=kwargs.pop('project_id', None),
+                                 tenant_name=kwargs.pop('project_name', None))
         else:
-            return v2_auth.Password(v2_auth_url,
+            return v2_auth.Password(
+                v2_auth_url,
                 username=kwargs.pop('username', None),
                 password=kwargs.pop('password', None),
                 tenant_id=kwargs.pop('project_id', None),
@@ -343,11 +346,40 @@ class IronicShell(object):
             # support only v2
             auth = self._get_keystone_v2_auth(v2_auth_url, **kwargs)
         else:
-            raise exc.CommandError('Unable to determine the Keystone version '
-                                   'to authenticate with using the given '
-                                   'auth_url.')
+            msg = _('Unable to determine the Keystone version '
+                    'to authenticate with using the given '
+                    'auth_url.')
+            raise exc.CommandError(msg)
 
         return auth
+
+    def _check_version(self, api_version):
+        if api_version == 'latest':
+            return LATEST_API_VERSION
+        else:
+            try:
+                versions = tuple(int(i) for i in api_version.split('.'))
+            except ValueError:
+                versions = ()
+            if len(versions) == 1:
+                # Default value of ironic_api_version is '1'.
+                # If user not specify the value of api version, not passing
+                # headers at all.
+                os_ironic_api_version = None
+            elif len(versions) == 2:
+                os_ironic_api_version = api_version
+                # In the case of '1.0'
+                if versions[1] == 0:
+                    os_ironic_api_version = None
+            else:
+                msg = _("The requested API version %(ver)s is an unexpected "
+                        "format. Acceptable formats are 'X', 'X.Y', or the "
+                        "literal string '%(latest)s'."
+                        ) % {'ver': api_version, 'latest': 'latest'}
+                raise exc.CommandError(msg)
+
+            api_major_version = versions[0]
+            return (api_major_version, os_ironic_api_version)
 
     def main(self, argv):
         # Parse args once to find version
@@ -356,8 +388,10 @@ class IronicShell(object):
         self._setup_debugging(options.debug)
 
         # build available subcommands based on version
-        api_version = options.ironic_api_version
-        subcommand_parser = self.get_subcommand_parser(api_version)
+        (api_major_version, os_ironic_api_version) = (
+            self._check_version(options.ironic_api_version))
+
+        subcommand_parser = self.get_subcommand_parser(api_major_version)
         self.parser = subcommand_parser
 
         # Handle top-level --help/-h before attempting to parse
@@ -402,10 +436,11 @@ class IronicShell(object):
 
             if not (args.os_tenant_id or args.os_tenant_name or
                     args.os_project_id or args.os_project_name):
-                raise exc.CommandError(_("You must provide a project name or"
-                    " project id via --os-project-name, --os-project-id,"
-                    " env[OS_PROJECT_ID] or env[OS_PROJECT_NAME].  You may"
-                    " use os-project and os-tenant interchangeably."))
+                raise exc.CommandError(
+                    _("You must provide a project name or"
+                      " project id via --os-project-name, --os-project-id,"
+                      " env[OS_PROJECT_ID] or env[OS_PROJECT_NAME].  You may"
+                      " use os-project and os-tenant interchangeably."))
 
             if not args.os_auth_url:
                 raise exc.CommandError(_("You must provide an auth url via "
@@ -428,9 +463,9 @@ class IronicShell(object):
                 'auth_ref': None,
             }
         elif (args.os_username and
-            args.os_password and
-            args.os_auth_url and
-            (project_id or project_name)):
+              args.os_password and
+              args.os_auth_url and
+              (project_id or project_name)):
 
             keystone_session = kssession.Session.load_from_cli_options(args)
 
@@ -466,7 +501,8 @@ class IronicShell(object):
                 'username': args.os_username,
                 'password': args.os_password,
             }
-        client = iroclient.Client(api_version, endpoint, **kwargs)
+        kwargs['os_ironic_api_version'] = os_ironic_api_version
+        client = iroclient.Client(api_major_version, endpoint, **kwargs)
 
         try:
             args.func(client, args)

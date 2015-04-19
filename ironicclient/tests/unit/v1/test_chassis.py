@@ -20,7 +20,7 @@ import copy
 import testtools
 from testtools.matchers import HasLength
 
-from ironicclient.tests import utils
+from ironicclient.tests.unit import utils
 import ironicclient.v1.chassis
 
 CHASSIS = {'id': 42,
@@ -29,9 +29,9 @@ CHASSIS = {'id': 42,
            'description': 'data-center-1-chassis'}
 
 CHASSIS2 = {'id': 43,
-           'uuid': 'eeeeeeee-dddd-cccc-bbbb-aaaaaaaaaaaa',
-           'extra': {},
-           'description': 'data-center-1-chassis'}
+            'uuid': 'eeeeeeee-dddd-cccc-bbbb-aaaaaaaaaaaa',
+            'extra': {},
+            'description': 'data-center-1-chassis'}
 
 
 NODE = {'id': 123,

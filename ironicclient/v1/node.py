@@ -17,11 +17,12 @@
 import os
 
 from ironicclient.common import base
+from ironicclient.common.i18n import _
 from ironicclient.common import utils
 from ironicclient import exc
 
 CREATION_ATTRIBUTES = ['chassis_uuid', 'driver', 'driver_info', 'extra',
-                       'uuid', 'properties']
+                       'uuid', 'properties', 'name']
 
 
 class Node(base.Resource):
@@ -194,7 +195,7 @@ class NodeManager(base.Manager):
             return self.get(path)
         else:
             raise exc.InvalidAttribute(
-                    _('Unknown HTTP method: %s') % http_method)
+                _('Unknown HTTP method: %s') % http_method)
 
     def set_maintenance(self, node_id, state, maint_reason=None):
         path = "%s/maintenance" % node_id
@@ -224,6 +225,9 @@ class NodeManager(base.Manager):
             if os.path.isfile(configdrive):
                 with open(configdrive, 'rb') as f:
                     configdrive = f.read()
+            if os.path.isdir(configdrive):
+                configdrive = utils.make_configdrive(configdrive)
+
             body['configdrive'] = configdrive
         return self._update(self._path(path), body, method='PUT')
 

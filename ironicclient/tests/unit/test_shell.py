@@ -30,8 +30,8 @@ from testtools import matchers
 
 from ironicclient import exc
 from ironicclient import shell as ironic_shell
-from ironicclient.tests import keystone_client_fixtures
-from ironicclient.tests import utils
+from ironicclient.tests.unit import keystone_client_fixtures
+from ironicclient.tests.unit import utils
 
 FAKE_ENV = {'OS_USERNAME': 'username',
             'OS_PASSWORD': 'password',
@@ -106,7 +106,7 @@ class ShellTest(utils.BaseTestCase):
     def test_help_on_subcommand(self):
         required = [
             '.*?^usage: ironic chassis-show',
-            ".*?^Show a chassis",
+            ".*?^Show detailed information about a chassis",
         ]
         argstrings = [
             'help chassis-show',
@@ -127,7 +127,7 @@ class ShellTest(utils.BaseTestCase):
         self.make_env(exclude='OS_PASSWORD')
         # We will get a Connection Refused because there is no keystone.
         self.assertRaises(keystone_exc.ConnectionRefused,
-            self.shell, 'node-list')
+                          self.shell, 'node-list')
         # Make sure we are actually prompted.
         mock_getpass.assert_called_with('OpenStack Password: ')
 
@@ -137,7 +137,7 @@ class ShellTest(utils.BaseTestCase):
         self.make_env(exclude='OS_PASSWORD')
         # We should get Command Error because we mock Ctl-D.
         self.assertRaises(exc.CommandError,
-            self.shell, 'node-list')
+                          self.shell, 'node-list')
         # Make sure we are actually prompted.
         mock_getpass.assert_called_with('OpenStack Password: ')
 
@@ -169,6 +169,12 @@ class ShellTest(utils.BaseTestCase):
         for r in required:
             self.assertThat(stdout,
                             matchers.MatchesRegex(r, self.re_options))
+
+    def test_ironic_api_version(self):
+        self.shell('--ironic-api-version 1.2 help')
+        self.shell('--ironic-api-version latest help')
+        self.assertRaises(exc.CommandError,
+                          self.shell, '--ironic-api-version 1.2.1 help')
 
 
 class TestCase(testtools.TestCase):

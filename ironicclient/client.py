@@ -14,11 +14,9 @@
 
 from keystoneclient.v2_0 import client as ksclient
 
+from ironicclient.common.i18n import _
 from ironicclient.common import utils
 from ironicclient import exc
-from ironicclient.openstack.common import gettextutils
-
-gettextutils.install('ironicclient')
 
 
 def _get_ksclient(**kwargs):
@@ -94,7 +92,7 @@ def get_client(api_version, **kwargs):
 
         ks_kwargs['region_name'] = kwargs.get('os_region_name')
         endpoint = (kwargs.get('ironic_url') or
-            _get_endpoint(_ksclient, **ks_kwargs))
+                    _get_endpoint(_ksclient, **ks_kwargs))
 
         auth_ref = _ksclient.auth_ref
 
@@ -111,6 +109,7 @@ def get_client(api_version, **kwargs):
         'cert_file': kwargs.get('cert_file'),
         'key_file': kwargs.get('key_file'),
         'auth_ref': auth_ref,
+        'os_ironic_api_version': kwargs.get('os_ironic_api_version'),
     }
 
     return Client(api_version, endpoint, **cli_kwargs)
