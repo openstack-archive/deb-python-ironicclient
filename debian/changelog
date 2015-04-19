@@ -1,4 +1,4 @@
-python-ironicclient (0.4.1-1) UNRELEASED; urgency=medium
+python-ironicclient (0.5.1-1) UNRELEASED; urgency=medium
 
   * New upstream release.
   * Fixed (build-)depends for this release.
