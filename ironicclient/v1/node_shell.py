@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-#
 # Copyright 2013 Red Hat, Inc.
 # All Rights Reserved.
 #
@@ -44,6 +42,7 @@ def _print_node_show(node):
     help='<id> is an instance UUID.')
 def do_node_show(cc, args):
     """Show detailed information about a node."""
+    utils.check_empty_arg(args.node, '<id>')
     if args.instance_uuid:
         node = cc.node.get_by_instance_uuid(args.node)
     else:
@@ -75,12 +74,10 @@ def do_node_show(cc, args):
 @cliutils.arg(
     '--maintenance',
     metavar='<boolean>',
-    choices=['true', 'True', 'false', 'False'],
     help="List nodes in maintenance mode: 'true' or 'false'.")
 @cliutils.arg(
     '--associated',
     metavar='<boolean>',
-    choices=['true', 'True', 'false', 'False'],
     help="List nodes by instance association: 'true' or 'false'.")
 @cliutils.arg(
     '--detail',
@@ -92,21 +89,27 @@ def do_node_list(cc, args):
     """List the nodes which are registered with the Ironic service."""
     params = {}
     if args.associated is not None:
-        params['associated'] = args.associated
+        params['associated'] = utils.bool_argument_value("--associated",
+                                                         args.associated)
     if args.maintenance is not None:
-        params['maintenance'] = args.maintenance
+        params['maintenance'] = utils.bool_argument_value("--maintenance",
+                                                          args.maintenance)
     params['detail'] = args.detail
 
     if args.detail:
         fields = res_fields.NODE_FIELDS
         field_labels = res_fields.NODE_FIELD_LABELS
+        sort_fields = res_fields.NODE_SORT_FIELDS
+        sort_field_labels = res_fields.NODE_SORT_FIELD_LABELS
     else:
         fields = res_fields.NODE_LIST_FIELDS
         field_labels = res_fields.NODE_LIST_FIELD_LABELS
+        sort_fields = fields
+        sort_field_labels = field_labels
 
     params.update(utils.common_params_for_list(args,
-                                               fields,
-                                               field_labels))
+                                               sort_fields,
+                                               sort_field_labels))
     nodes = cc.node.list(**params)
     cliutils.print_list(nodes, fields,
                         field_labels=field_labels,
@@ -292,20 +295,21 @@ def do_node_port_list(cc, args):
 @cliutils.arg(
     'maintenance_mode',
     metavar='<maintenance-mode>',
-    choices=['true', 'True', 'false', 'False', 'on', 'off'],
     help="'true' or 'false'; 'on' or 'off'.")
 @cliutils.arg(
     '--reason',
     metavar='<reason>',
     default=None,
-    help=('Reason for setting maintenance mode to "true" or "on";'
-          ' not valid when setting to "false" or "off".'))
+    help=("Reason for setting maintenance mode to 'true' or 'on';"
+          " not valid when setting to 'false' or 'off'."))
 def do_node_set_maintenance(cc, args):
     """Enable or disable maintenance mode for a node."""
-    if args.reason and args.maintenance_mode.lower() in ('false', 'off'):
+    maintenance_mode = utils.bool_argument_value("<maintenance-mode>",
+                                                 args.maintenance_mode)
+    if args.reason and not maintenance_mode:
         raise exceptions.CommandError(_('Cannot set "reason" when turning off '
                                         'maintenance mode.'))
-    cc.node.set_maintenance(args.node, args.maintenance_mode.lower(),
+    cc.node.set_maintenance(args.node, maintenance_mode,
                             maint_reason=args.reason)
 
 
@@ -371,12 +375,11 @@ def do_node_get_console(cc, args):
 @cliutils.arg(
     'enabled',
     metavar='<enabled>',
-    choices=['true', 'false'],
-    help="Enable or disable console access for a node. Supported options are: "
-         "'true' or 'false'.")
+    help="Enable or disable console access for a node: 'true' or 'false'.")
 def do_node_set_console_mode(cc, args):
     """Enable or disable serial console access for a node."""
-    cc.node.set_console_mode(args.node, args.enabled)
+    enable = utils.bool_argument_value("<enabled>", args.enabled)
+    cc.node.set_console_mode(args.node, enable)
 
 
 @cliutils.arg('node', metavar='<node>', help="Name or UUID of the node.")
@@ -410,3 +413,10 @@ def do_node_get_supported_boot_devices(cc, args):
     boot_device_list = boot_devices.get('supported_boot_devices', [])
     boot_devices['supported_boot_devices'] = ', '.join(boot_device_list)
     cliutils.print_dict(boot_devices, wrap=72)
+
+
+@cliutils.arg('node', metavar='<node>', help="Name or UUID of the node.")
+def do_node_show_states(cc, args):
+    """Show information about the node's states."""
+    states = cc.node.states(args.node)
+    cliutils.print_dict(states.to_dict(), wrap=72)

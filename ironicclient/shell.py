@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-#
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
 #    a copy of the License at
@@ -29,11 +27,14 @@ from keystoneclient.auth.identity import v3 as v3_auth
 from keystoneclient import discover
 from keystoneclient.openstack.common.apiclient import exceptions as ks_exc
 from keystoneclient import session as kssession
+from oslo_utils import encodeutils
+import six
 import six.moves.urllib.parse as urlparse
 
 
 import ironicclient
 from ironicclient import client as iroclient
+from ironicclient.common import http
 from ironicclient.common.i18n import _
 from ironicclient.common import utils
 from ironicclient import exc
@@ -221,6 +222,25 @@ class IronicShell(object):
         parser.add_argument('--os_endpoint_type',
                             help=argparse.SUPPRESS)
 
+        parser.add_argument('--max-retries', type=int,
+                            help='Maximum number of retries in case of '
+                            'conflict error (HTTP 409). '
+                            'Defaults to env[IRONIC_MAX_RETRIES] or %d. '
+                            'Use 0 to disable retrying.'
+                            % http.DEFAULT_MAX_RETRIES,
+                            default=cliutils.env(
+                                'IRONIC_MAX_RETRIES',
+                                default=str(http.DEFAULT_MAX_RETRIES)))
+
+        parser.add_argument('--retry-interval', type=int,
+                            help='Amount of time (in seconds) between retries '
+                            'in case of conflict error (HTTP 409). '
+                            'Defaults to env[IRONIC_RETRY_INTERVAL] or %d.'
+                            % http.DEFAULT_RETRY_INTERVAL,
+                            default=cliutils.env(
+                                'IRONIC_RETRY_INTERVAL',
+                                default=str(http.DEFAULT_RETRY_INTERVAL)))
+
         # FIXME(gyee): this method should come from python-keystoneclient.
         # Will refactor this code once it is available.
         # https://bugs.launchpad.net/python-keystoneclient/+bug/1332337
@@ -233,7 +253,8 @@ class IronicShell(object):
         parser = self.get_base_parser()
 
         self.subcommands = {}
-        subparsers = parser.add_subparsers(metavar='<subcommand>')
+        subparsers = parser.add_subparsers(metavar='<subcommand>',
+                                           dest='subparser_name')
         submodule = utils.import_versioned_module(version, 'shell')
         submodule.enhance_parser(parser, subparsers, self.subcommands)
         utils.define_commands_from_module(subparsers, self, self.subcommands)
@@ -502,12 +523,23 @@ class IronicShell(object):
                 'password': args.os_password,
             }
         kwargs['os_ironic_api_version'] = os_ironic_api_version
+        if args.max_retries < 0:
+            raise exc.CommandError(_("You must provide value >= 0 for "
+                                     "--max-retries"))
+        if args.retry_interval < 1:
+            raise exc.CommandError(_("You must provide value >= 1 for "
+                                     "--retry-interval"))
+        kwargs['max_retries'] = args.max_retries
+        kwargs['retry_interval'] = args.retry_interval
         client = iroclient.Client(api_major_version, endpoint, **kwargs)
 
         try:
             args.func(client, args)
         except exc.Unauthorized:
             raise exc.CommandError(_("Invalid OpenStack Identity credentials"))
+        except exc.CommandError as e:
+            subcommand_parser = self.subcommands[args.subparser_name]
+            subcommand_parser.error(e)
 
     @cliutils.arg('command', metavar='<subcommand>', nargs='?',
                   help='Display help for <subcommand>')
@@ -537,7 +569,7 @@ def main():
         print("... terminating ironic client", file=sys.stderr)
         sys.exit(130)
     except Exception as e:
-        print(str(e), file=sys.stderr)
+        print(encodeutils.safe_encode(six.text_type(e)), file=sys.stderr)
         sys.exit(1)
 
 if __name__ == "__main__":

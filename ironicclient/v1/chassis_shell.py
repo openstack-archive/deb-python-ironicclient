@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-#
 # Copyright 2013 Red Hat, Inc.
 # All Rights Reserved.
 #
@@ -29,6 +27,7 @@ def _print_chassis_show(chassis):
 @cliutils.arg('chassis', metavar='<chassis>', help="UUID of the chassis.")
 def do_chassis_show(cc, args):
     """Show detailed information about a chassis."""
+    utils.check_empty_arg(args.chassis, '<chassis>')
     chassis = cc.chassis.get(args.chassis)
     _print_chassis_show(chassis)
 
@@ -66,11 +65,16 @@ def do_chassis_list(cc, args):
     if args.detail:
         fields = res_fields.CHASSIS_FIELDS
         field_labels = res_fields.CHASSIS_FIELD_LABELS
+        sort_fields = res_fields.CHASSIS_SORT_FIELDS
+        sort_field_labels = res_fields.CHASSIS_SORT_FIELD_LABELS
     else:
         fields = res_fields.CHASSIS_LIST_FIELDS
         field_labels = res_fields.CHASSIS_LIST_FIELD_LABELS
+        sort_fields = fields
+        sort_field_labels = field_labels
 
-    params = utils.common_params_for_list(args, fields, field_labels)
+    params = utils.common_params_for_list(args, sort_fields,
+                                          sort_field_labels)
 
     chassis = cc.chassis.list(**params)
     cliutils.print_list(chassis, fields,

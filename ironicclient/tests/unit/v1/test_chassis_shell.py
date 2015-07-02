@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-#
 # Copyright 2013 IBM Corp
 #
 #   Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -16,6 +14,7 @@
 
 import mock
 
+from ironicclient.openstack.common.apiclient import exceptions
 from ironicclient.openstack.common import cliutils
 from ironicclient.tests.unit import utils
 import ironicclient.v1.chassis_shell as c_shell
@@ -31,3 +30,82 @@ class ChassisShellTest(utils.BaseTestCase):
         exp = ['created_at', 'description', 'extra', 'updated_at', 'uuid']
         act = actual.keys()
         self.assertEqual(sorted(exp), sorted(act))
+
+    def test_do_chassis_show_space_uuid(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.chassis = '   '
+        self.assertRaises(exceptions.CommandError,
+                          c_shell.do_chassis_show,
+                          client_mock, args)
+
+    def test_do_chassis_show_empty_uuid(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.chassis = ''
+        self.assertRaises(exceptions.CommandError,
+                          c_shell.do_chassis_show,
+                          client_mock, args)
+
+    def _get_client_mock_args(self, marker=None, limit=None, sort_dir=None,
+                              sort_key=None, detail=False):
+        args = mock.MagicMock()
+        args.marker = marker
+        args.limit = limit
+        args.sort_dir = sort_dir
+        args.sort_key = sort_key
+        args.detail = detail
+
+        return args
+
+    def test_do_chassis_list(self):
+        client_mock = mock.MagicMock()
+        args = self._get_client_mock_args()
+
+        c_shell.do_chassis_list(client_mock, args)
+        client_mock.chassis.list.assert_called_once_with(detail=False)
+
+    def test_do_chassis_list_detail(self):
+        client_mock = mock.MagicMock()
+        args = self._get_client_mock_args(detail=True)
+
+        c_shell.do_chassis_list(client_mock, args)
+        client_mock.chassis.list.assert_called_once_with(detail=True)
+
+    def test_do_chassis_list_sort_key(self):
+        client_mock = mock.MagicMock()
+        args = self._get_client_mock_args(sort_key='uuid',
+                                          detail=False)
+
+        c_shell.do_chassis_list(client_mock, args)
+        client_mock.chassis.list.assert_called_once_with(sort_key='uuid',
+                                                         detail=False)
+
+    def test_do_chassis_list_wrong_sort_key(self):
+        client_mock = mock.MagicMock()
+        args = self._get_client_mock_args(sort_key='extra',
+                                          detail=False)
+
+        self.assertRaises(exceptions.CommandError,
+                          c_shell.do_chassis_list,
+                          client_mock, args)
+        self.assertFalse(client_mock.chassis.list.called)
+
+    def test_do_chassis_list_detail_sort_key(self):
+        client_mock = mock.MagicMock()
+        args = self._get_client_mock_args(sort_key='created_at',
+                                          detail=True)
+
+        c_shell.do_chassis_list(client_mock, args)
+        client_mock.chassis.list.assert_called_once_with(sort_key='created_at',
+                                                         detail=True)
+
+    def test_do_chassis_list_detail_wrong_sort_key(self):
+        client_mock = mock.MagicMock()
+        args = self._get_client_mock_args(sort_key='extra',
+                                          detail=True)
+
+        self.assertRaises(exceptions.CommandError,
+                          c_shell.do_chassis_list,
+                          client_mock, args)
+        self.assertFalse(client_mock.chassis.list.called)

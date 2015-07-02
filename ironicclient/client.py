@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-#
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
 #    a copy of the License at
@@ -103,14 +101,11 @@ def get_client(api_version, **kwargs):
 
     cli_kwargs = {
         'token': token,
-        'insecure': kwargs.get('insecure'),
-        'timeout': kwargs.get('timeout'),
-        'ca_file': kwargs.get('ca_file'),
-        'cert_file': kwargs.get('cert_file'),
-        'key_file': kwargs.get('key_file'),
         'auth_ref': auth_ref,
-        'os_ironic_api_version': kwargs.get('os_ironic_api_version'),
     }
+    for key in ('insecure', 'timeout', 'ca_file', 'cert_file', 'key_file',
+                'os_ironic_api_version', 'max_retries', 'retry_interval'):
+        cli_kwargs[key] = kwargs.get(key)
 
     return Client(api_version, endpoint, **cli_kwargs)
 

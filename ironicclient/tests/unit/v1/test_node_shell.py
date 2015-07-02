@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-#
 # Copyright 2013 IBM Corp
 #
 #   Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -179,6 +177,42 @@ class NodeShellTest(utils.BaseTestCase):
         # assert get() wasn't called
         self.assertFalse(client_mock.node.get.called)
 
+    def test_do_node_show_by_space_node_uuid(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.node = '   '
+        args.instance_uuid = False
+        self.assertRaises(exceptions.CommandError,
+                          n_shell.do_node_show,
+                          client_mock, args)
+
+    def test_do_node_show_by_space_instance_uuid(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.node = '   '
+        args.instance_uuid = True
+        self.assertRaises(exceptions.CommandError,
+                          n_shell.do_node_show,
+                          client_mock, args)
+
+    def test_do_node_show_by_empty_node_uuid(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.node = ''
+        args.instance_uuid = False
+        self.assertRaises(exceptions.CommandError,
+                          n_shell.do_node_show,
+                          client_mock, args)
+
+    def test_do_node_show_by_empty_instance_uuid(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.node = ''
+        args.instance_uuid = True
+        self.assertRaises(exceptions.CommandError,
+                          n_shell.do_node_show,
+                          client_mock, args)
+
     def test_do_node_set_maintenance_true(self):
         client_mock = mock.MagicMock()
         args = mock.MagicMock()
@@ -188,7 +222,7 @@ class NodeShellTest(utils.BaseTestCase):
 
         n_shell.do_node_set_maintenance(client_mock, args)
         client_mock.node.set_maintenance.assert_called_once_with(
-            'node_uuid', 'true', maint_reason='reason')
+            'node_uuid', True, maint_reason='reason')
 
     def test_do_node_set_maintenance_false(self):
         client_mock = mock.MagicMock()
@@ -200,7 +234,19 @@ class NodeShellTest(utils.BaseTestCase):
 
         n_shell.do_node_set_maintenance(client_mock, args)
         client_mock.node.set_maintenance.assert_called_once_with(
-            'node_uuid', 'false', maint_reason=None)
+            'node_uuid', False, maint_reason=None)
+
+    def test_do_node_set_maintenance_bad(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.node = 'node_uuid'
+        args.maintenance_mode = 'yuck'
+        # NOTE(jroll) None is the default. <3 mock.
+        args.reason = None
+
+        self.assertRaises(exceptions.CommandError,
+                          n_shell.do_node_set_maintenance, client_mock, args)
+        self.assertFalse(client_mock.node.set_maintenance.called)
 
     def test_do_node_set_maintenance_false_with_reason_fails(self):
         client_mock = mock.MagicMock()
@@ -222,7 +268,7 @@ class NodeShellTest(utils.BaseTestCase):
 
         n_shell.do_node_set_maintenance(client_mock, args)
         client_mock.node.set_maintenance.assert_called_once_with(
-            'node_uuid', 'on', maint_reason='reason')
+            'node_uuid', True, maint_reason='reason')
 
     def test_do_node_set_maintenance_off(self):
         client_mock = mock.MagicMock()
@@ -234,7 +280,7 @@ class NodeShellTest(utils.BaseTestCase):
 
         n_shell.do_node_set_maintenance(client_mock, args)
         client_mock.node.set_maintenance.assert_called_once_with(
-            'node_uuid', 'off', maint_reason=None)
+            'node_uuid', False, maint_reason=None)
 
     def test_do_node_set_maintenance_off_with_reason_fails(self):
         client_mock = mock.MagicMock()
@@ -369,6 +415,26 @@ class NodeShellTest(utils.BaseTestCase):
         client_mock.node.set_provision_state.assert_called_once_with(
             'node_uuid', 'provide', configdrive=None)
 
+    def test_do_node_set_console_mode(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.node = 'node_uuid'
+        args.enabled = 'true'
+
+        n_shell.do_node_set_console_mode(client_mock, args)
+        client_mock.node.set_console_mode.assert_called_once_with(
+            'node_uuid', True)
+
+    def test_do_node_set_console_mode_bad(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.node = 'node_uuid'
+        args.enabled = 'yuck'
+
+        self.assertRaises(exceptions.CommandError,
+                          n_shell.do_node_set_console_mode, client_mock, args)
+        self.assertFalse(client_mock.node.set_console_mode.called)
+
     def test_do_node_set_boot_device(self):
         client_mock = mock.MagicMock()
         args = mock.MagicMock()
@@ -396,3 +462,77 @@ class NodeShellTest(utils.BaseTestCase):
         n_shell.do_node_get_supported_boot_devices(client_mock, args)
         client_mock.node.get_supported_boot_devices.assert_called_once_with(
             'node_uuid')
+
+    def _get_client_mock_args(self, associated=None, maintenance=None,
+                              marker=None, limit=None, sort_dir=None,
+                              sort_key=None, detail=False):
+        args = mock.MagicMock()
+        args.associated = associated
+        args.maintenance = maintenance
+        args.marker = marker
+        args.limit = limit
+        args.sort_dir = sort_dir
+        args.sort_key = sort_key
+        args.detail = detail
+
+        return args
+
+    def test_do_node_list(self):
+        client_mock = mock.MagicMock()
+        args = self._get_client_mock_args()
+
+        n_shell.do_node_list(client_mock, args)
+        client_mock.node.list.assert_called_once_with(detail=False)
+
+    def test_do_node_list_detail(self):
+        client_mock = mock.MagicMock()
+        args = self._get_client_mock_args(detail=True)
+
+        n_shell.do_node_list(client_mock, args)
+        client_mock.node.list.assert_called_once_with(detail=True)
+
+    def test_do_node_list_sort_key(self):
+        client_mock = mock.MagicMock()
+        args = self._get_client_mock_args(sort_key='uuid',
+                                          detail=False)
+
+        n_shell.do_node_list(client_mock, args)
+        client_mock.node.list.assert_called_once_with(sort_key='uuid',
+                                                      detail=False)
+
+    def test_do_node_list_wrong_sort_key(self):
+        client_mock = mock.MagicMock()
+        args = self._get_client_mock_args(sort_key='chassis_uuid',
+                                          detail=False)
+
+        self.assertRaises(exceptions.CommandError,
+                          n_shell.do_node_list,
+                          client_mock, args)
+        self.assertFalse(client_mock.node.list.called)
+
+    def test_do_node_list_detail_sort_key(self):
+        client_mock = mock.MagicMock()
+        args = self._get_client_mock_args(sort_key='created_at',
+                                          detail=True)
+
+        n_shell.do_node_list(client_mock, args)
+        client_mock.node.list.assert_called_once_with(sort_key='created_at',
+                                                      detail=True)
+
+    def test_do_node_list_detail_wrong_sort_key(self):
+        client_mock = mock.MagicMock()
+        args = self._get_client_mock_args(sort_key='chassis_uuid',
+                                          detail=True)
+
+        self.assertRaises(exceptions.CommandError,
+                          n_shell.do_node_list,
+                          client_mock, args)
+        self.assertFalse(client_mock.node.list.called)
+
+    def test_do_node_show_states(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.node = 'node_uuid'
+
+        n_shell.do_node_show_states(client_mock, args)
+        client_mock.node.states.assert_called_once_with('node_uuid')
