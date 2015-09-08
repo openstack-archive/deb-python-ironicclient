@@ -38,7 +38,7 @@ endif
 
 override_dh_sphinxdoc:
 ifeq (,$(findstring nodocs, $(DEB_BUILD_OPTIONS)))
-	sphinx-build -b html doc/source debian/python-ironicclient-doc/usr/share/doc/python-ironicclient/html
+	sphinx-build -b html doc/source debian/python-ironicclient-doc/usr/share/doc/python-ironicclient-doc/html
 	dh_sphinxdoc -O--buildsystem=python_distutils
 endif
 

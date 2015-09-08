@@ -1,6 +1,7 @@
 python-ironicclient (0.8.0-2) experimental; urgency=medium
 
   * Added Python 3 support.
+  * Added a -doc package.
 
  -- Thomas Goirand <zigo@debian.org>  Tue, 08 Sep 2015 15:39:05 +0000
 

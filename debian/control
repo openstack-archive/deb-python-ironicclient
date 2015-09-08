@@ -117,3 +117,25 @@ Description: Client for OpenStack bare metal Service - Python 3.x
  interact with Ironic's API.
  .
  This package provides the Python 3.x support.
+
+Package: python-ironicclient-doc
+Section: doc
+Architecture: all
+Depends: ${sphinxdoc:Depends},
+         ${misc:Depends},
+Description: Client for OpenStack bare metal Service - doc
+ Ironic provision bare metal machines instead of virtual machines. It is a fork
+ of the Nova Baremetal driver. It is best thought of as a bare metal hypervisor
+ API and a set of plugins which interact with the bare metal hypervisors. By
+ default, it will use PXE and IPMI in concert to provision and turn on/off
+ machines, but Ironic also supports vendor-specific plugins which may
+ implement
+ additional functionality.
+ .
+ This is a client for the OpenStack Ironic API. There's a Python API
+ (the "ironicclient" module), and a command-line script ("ironic").
+ .
+ Installing this package gets you a shell command, that you can use to
+ interact with Ironic's API.
+ .
+ This package provides the documentation.
