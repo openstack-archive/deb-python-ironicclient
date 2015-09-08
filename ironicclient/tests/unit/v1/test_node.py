@@ -28,6 +28,7 @@ NODE1 = {'id': 123,
          'uuid': '66666666-7777-8888-9999-000000000000',
          'chassis_uuid': 'aaaaaaaa-1111-bbbb-2222-cccccccccccc',
          'maintenance': False,
+         'provision_state': 'available',
          'driver': 'fake',
          'driver_info': {'user': 'foo', 'password': 'bar'},
          'properties': {'num_cpu': 4},
@@ -75,6 +76,7 @@ CREATE_NODE = copy.deepcopy(NODE1)
 del CREATE_NODE['id']
 del CREATE_NODE['uuid']
 del CREATE_NODE['maintenance']
+del CREATE_NODE['provision_state']
 
 UPDATED_NODE = copy.deepcopy(NODE1)
 NEW_DRIVER = 'new-driver'
@@ -83,6 +85,7 @@ UPDATED_NODE['driver'] = NEW_DRIVER
 CREATE_WITH_UUID = copy.deepcopy(NODE1)
 del CREATE_WITH_UUID['id']
 del CREATE_WITH_UUID['maintenance']
+del CREATE_WITH_UUID['provision_state']
 
 fake_responses = {
     '/v1/nodes':
@@ -101,6 +104,13 @@ fake_responses = {
         'GET': (
             {},
             {"nodes": [NODE1, NODE2]}
+        ),
+    },
+    '/v1/nodes/?fields=uuid,extra':
+    {
+        'GET': (
+            {},
+            {"nodes": [NODE1]}
         ),
     },
     '/v1/nodes/?associated=False':
@@ -138,6 +148,13 @@ fake_responses = {
             {"nodes": [NODE2]},
         )
     },
+    '/v1/nodes/?provision_state=available':
+    {
+        'GET': (
+            {},
+            {"nodes": [NODE1]},
+        )
+    },
     '/v1/nodes/detail?instance_uuid=%s' % NODE2['instance_uuid']:
     {
         'GET': (
@@ -158,6 +175,13 @@ fake_responses = {
         'PATCH': (
             {},
             UPDATED_NODE,
+        ),
+    },
+    '/v1/nodes/%s?fields=uuid,extra' % NODE1['uuid']:
+    {
+        'GET': (
+            {},
+            NODE1,
         ),
     },
     '/v1/nodes/%s' % NODE2['uuid']:
@@ -182,6 +206,13 @@ fake_responses = {
         ),
     },
     '/v1/nodes/%s/ports/detail' % NODE1['uuid']:
+    {
+        'GET': (
+            {},
+            {"ports": [PORT]},
+        ),
+    },
+    '/v1/nodes/%s/ports?fields=uuid,address' % NODE1['uuid']:
     {
         'GET': (
             {},
@@ -451,6 +482,19 @@ class NodeManagerTest(testtools.TestCase):
         self.assertThat(nodes, HasLength(1))
         self.assertEqual(NODE2['uuid'], getattr(nodes[0], 'uuid'))
 
+    def test_node_list_provision_state(self):
+        nodes = self.mgr.list(provision_state="available")
+        expect = [
+            ('GET', '/v1/nodes/?provision_state=available', {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertThat(nodes, HasLength(1))
+        self.assertEqual(NODE1['uuid'], getattr(nodes[0], 'uuid'))
+
+    def test_node_list_provision_state_fail(self):
+        self.assertRaises(KeyError, self.mgr.list,
+                          provision_state="test")
+
     def test_node_list_no_maintenance(self):
         nodes = self.mgr.list(maintenance=False)
         expect = [
@@ -478,6 +522,18 @@ class NodeManagerTest(testtools.TestCase):
         self.assertEqual(2, len(nodes))
         self.assertEqual(nodes[0].extra, {})
 
+    def test_node_list_fields(self):
+        nodes = self.mgr.list(fields=['uuid', 'extra'])
+        expect = [
+            ('GET', '/v1/nodes/?fields=uuid,extra', {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertEqual(1, len(nodes))
+
+    def test_node_list_detail_and_fields_fail(self):
+        self.assertRaises(exc.InvalidAttribute, self.mgr.list,
+                          detail=True, fields=['uuid', 'extra'])
+
     def test_node_show(self):
         node = self.mgr.get(NODE1['uuid'])
         expect = [
@@ -499,6 +555,15 @@ class NodeManagerTest(testtools.TestCase):
         node = self.mgr.get(NODE1['name'])
         expect = [
             ('GET', '/v1/nodes/%s' % NODE1['name'], {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertEqual(NODE1['uuid'], node.uuid)
+
+    def test_node_show_fields(self):
+        node = self.mgr.get(NODE1['uuid'], fields=['uuid', 'extra'])
+        expect = [
+            ('GET', '/v1/nodes/%s?fields=uuid,extra' %
+             NODE1['uuid'], {}, None),
         ]
         self.assertEqual(expect, self.api.calls)
         self.assertEqual(NODE1['uuid'], node.uuid)
@@ -604,6 +669,19 @@ class NodeManagerTest(testtools.TestCase):
         ]
         self.assertEqual(expect, self.api.calls)
         self.assertEqual(1, len(ports))
+
+    def test_node_port_list_fields(self):
+        ports = self.mgr.list_ports(NODE1['uuid'], fields=['uuid', 'address'])
+        expect = [
+            ('GET', '/v1/nodes/%s/ports?fields=uuid,address' %
+             NODE1['uuid'], {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertEqual(1, len(ports))
+
+    def test_node_port_list_detail_and_fields_fail(self):
+        self.assertRaises(exc.InvalidAttribute, self.mgr.list_ports,
+                          NODE1['uuid'], detail=True, fields=['uuid', 'extra'])
 
     def test_node_set_maintenance_true(self):
         maintenance = self.mgr.set_maintenance(NODE1['uuid'], 'true',

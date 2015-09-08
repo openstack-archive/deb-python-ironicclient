@@ -14,6 +14,7 @@
 #    under the License.
 
 import copy
+from distutils.version import StrictVersion
 import functools
 import json
 import logging
@@ -27,6 +28,7 @@ from keystoneclient import adapter
 import six
 import six.moves.urllib.parse as urlparse
 
+from ironicclient.common import filecache
 from ironicclient import exc
 
 
@@ -35,7 +37,7 @@ from ironicclient import exc
 #             microversion support in the client properly! See
 #             http://specs.openstack.org/openstack/ironic-specs/specs/kilo/api-microversions.html # noqa
 #             for full details.
-DEFAULT_VER = '1.6'
+DEFAULT_VER = '1.9'
 
 
 LOG = logging.getLogger(__name__)
@@ -43,7 +45,7 @@ USER_AGENT = 'python-ironicclient'
 CHUNKSIZE = 1024 * 64  # 64kB
 
 API_VERSION = '/v1'
-API_VERSION_SELECTED_STATES = ('user', 'negotiated', 'default')
+API_VERSION_SELECTED_STATES = ('user', 'negotiated', 'cached', 'default')
 
 
 DEFAULT_MAX_RETRIES = 5
@@ -67,6 +69,14 @@ def _extract_error_json(body):
         pass
 
     return error_json
+
+
+def get_server(endpoint):
+    """Extract and return the server & port that we're connecting to."""
+    if endpoint is None:
+        return None, None
+    parts = urlparse.urlparse(endpoint)
+    return parts.hostname, str(parts.port)
 
 
 class VersionNegotiationMixin(object):
@@ -117,8 +127,8 @@ class VersionNegotiationMixin(object):
                 % {'req': self.os_ironic_api_version,
                    'min': min_ver, 'max': max_ver}))
 
-        # TODO(deva): cache the negotiated version for this server
-        negotiated_ver = min(self.os_ironic_api_version, max_ver)
+        negotiated_ver = str(min(StrictVersion(self.os_ironic_api_version),
+                                 StrictVersion(max_ver)))
         if negotiated_ver < min_ver:
             negotiated_ver = min_ver
         # server handles microversions, but doesn't support
@@ -126,6 +136,10 @@ class VersionNegotiationMixin(object):
         self.api_version_select_state = 'negotiated'
         self.os_ironic_api_version = negotiated_ver
         LOG.debug('Negotiated API version is %s', negotiated_ver)
+
+        # Cache the negotiated version for this server
+        host, port = get_server(self.endpoint)
+        filecache.save_data(host=host, port=port, data=negotiated_ver)
 
         return negotiated_ver
 
@@ -145,6 +159,10 @@ class VersionNegotiationMixin(object):
         raise NotImplementedError()
 
 
+_RETRY_EXCEPTIONS = (exc.Conflict, exc.ServiceUnavailable,
+                     exc.ConnectionRefused)
+
+
 def with_retries(func):
     """Wrapper for _http_request adding support for retries."""
     @functools.wraps(func)
@@ -158,7 +176,7 @@ def with_retries(func):
         for attempt in range(1, num_attempts + 1):
             try:
                 return func(self, url, method, **kwargs)
-            except exc.Conflict as error:
+            except _RETRY_EXCEPTIONS as error:
                 msg = ("Error contacting Ironic server: %(error)s. "
                        "Attempt %(attempt)d of %(total)d" %
                        {'attempt': attempt,
@@ -439,8 +457,20 @@ class VerifiedHTTPSConnection(six.moves.http_client.HTTPSConnection):
 class SessionClient(VersionNegotiationMixin, adapter.LegacyJsonAdapter):
     """HTTP client based on Keystone client session."""
 
-    conflict_max_retries = DEFAULT_MAX_RETRIES
-    conflict_retry_interval = DEFAULT_RETRY_INTERVAL
+    def __init__(self,
+                 os_ironic_api_version,
+                 api_version_select_state,
+                 max_retries,
+                 retry_interval,
+                 endpoint,
+                 **kwargs):
+        self.os_ironic_api_version = os_ironic_api_version
+        self.api_version_select_state = api_version_select_state
+        self.conflict_max_retries = max_retries
+        self.conflict_retry_interval = retry_interval
+        self.endpoint = endpoint
+
+        super(SessionClient, self).__init__(**kwargs)
 
     def _parse_version_headers(self, resp):
         return self._generic_parse_version_headers(resp.headers.get)
@@ -530,29 +560,61 @@ class ResponseBodyIterator(object):
             raise StopIteration()
 
 
-def _construct_http_client(*args, **kwargs):
-    session = kwargs.pop('session', None)
-    auth = kwargs.pop('auth', None)
-
+def _construct_http_client(endpoint,
+                           session=None,
+                           token=None,
+                           auth_ref=None,
+                           os_ironic_api_version=DEFAULT_VER,
+                           api_version_select_state='default',
+                           max_retries=DEFAULT_MAX_RETRIES,
+                           retry_interval=DEFAULT_RETRY_INTERVAL,
+                           timeout=600,
+                           ca_file=None,
+                           cert_file=None,
+                           key_file=None,
+                           insecure=None,
+                           **kwargs):
     if session:
-        service_type = kwargs.pop('service_type', 'baremetal')
-        interface = kwargs.pop('endpoint_type', None)
-        region_name = kwargs.pop('region_name', None)
-        os_ironic_api_version = kwargs.pop('os_ironic_api_version',
-                                           DEFAULT_VER)
-        session_client = SessionClient(session=session,
-                                       auth=auth,
-                                       interface=interface,
-                                       service_type=service_type,
-                                       region_name=region_name,
-                                       service_name=None,
-                                       user_agent='python-ironicclient')
-        # Append an ironic specific variable to session
-        session_client.os_ironic_api_version = os_ironic_api_version
-        session_client.api_version_select_state = (
-            kwargs.pop('api_version_select_state', 'default'))
-        session_client.conflict_max_retries = kwargs.get('max_retries')
-        session_client.conflict_retry_interval = kwargs.get('retry_interval')
-        return session_client
+        kwargs.setdefault('service_type', 'baremetal')
+        kwargs.setdefault('user_agent', 'python-ironicclient')
+        kwargs.setdefault('interface', kwargs.pop('endpoint_type', None))
+        kwargs.setdefault('endpoint_override', endpoint)
+
+        ignored = {'token': token,
+                   'auth_ref': auth_ref,
+                   'timeout': timeout != 600,
+                   'ca_file': ca_file,
+                   'cert_file': cert_file,
+                   'key_file': key_file,
+                   'insecure': insecure}
+
+        dvars = [k for k, v in six.iteritems(ignored) if v]
+
+        if dvars:
+            LOG.warn('The following arguments are ignored when using the '
+                     'session to construct a client: %s', ', '.join(dvars))
+
+        return SessionClient(session=session,
+                             os_ironic_api_version=os_ironic_api_version,
+                             api_version_select_state=api_version_select_state,
+                             max_retries=max_retries,
+                             retry_interval=retry_interval,
+                             endpoint=endpoint,
+                             **kwargs)
     else:
-        return HTTPClient(*args, **kwargs)
+        if kwargs:
+            LOG.warn('The following arguments are being ignored when '
+                     'constructing the client: %s', ', '.join(kwargs))
+
+        return HTTPClient(endpoint=endpoint,
+                          token=token,
+                          auth_ref=auth_ref,
+                          os_ironic_api_version=os_ironic_api_version,
+                          api_version_select_state=api_version_select_state,
+                          max_retries=max_retries,
+                          retry_interval=retry_interval,
+                          timeout=timeout,
+                          ca_file=ca_file,
+                          cert_file=cert_file,
+                          key_file=key_file,
+                          insecure=insecure)

@@ -96,6 +96,14 @@ class IronicShell(object):
             formatter_class=HelpFormatter,
         )
 
+        # FIXME(gyee): this method should come from python-keystoneclient.
+        # Will refactor this code once it is available.
+        # https://bugs.launchpad.net/python-keystoneclient/+bug/1332337
+
+        # Register global Keystone args first so their defaults are respected.
+        # See https://bugs.launchpad.net/python-ironicclient/+bug/1463581
+        self._append_global_identity_args(parser)
+
         # Global arguments
         parser.add_argument('-h', '--help',
                             action='store_true',
@@ -240,12 +248,6 @@ class IronicShell(object):
                             default=cliutils.env(
                                 'IRONIC_RETRY_INTERVAL',
                                 default=str(http.DEFAULT_RETRY_INTERVAL)))
-
-        # FIXME(gyee): this method should come from python-keystoneclient.
-        # Will refactor this code once it is available.
-        # https://bugs.launchpad.net/python-keystoneclient/+bug/1332337
-
-        self._append_global_identity_args(parser)
 
         return parser
 
@@ -513,14 +515,11 @@ class IronicShell(object):
 
             endpoint_type = args.os_endpoint_type or 'publicURL'
             kwargs = {
-                'auth_url': args.os_auth_url,
                 'session': keystone_session,
                 'auth': keystone_auth,
                 'service_type': service_type,
                 'endpoint_type': endpoint_type,
                 'region_name': args.os_region_name,
-                'username': args.os_username,
-                'password': args.os_password,
             }
         kwargs['os_ironic_api_version'] = os_ironic_api_version
         if args.max_retries < 0:
