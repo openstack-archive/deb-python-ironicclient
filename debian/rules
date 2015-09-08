@@ -1,13 +1,24 @@
 #!/usr/bin/make -f
 
 PYTHONS:=$(shell pyversions -vr)
-#PYTHON3S:=$(shell py3versions -vr)
+PYTHON3S:=$(shell py3versions -vr)
 
 include /usr/share/openstack-pkg-tools/pkgos.make
 export OSLO_PACKAGE_VERSION=$(VERSION)
 
 %:
-	dh $@  --with python2,sphinxdoc
+	dh $@  --with python2,python3,sphinxdoc
+
+override_dh_install:
+	set -e ; for pyvers in $(PYTHONS); do \
+		python$$pyvers setup.py install --install-layout=deb \
+			--root $(CURDIR)/debian/python-ironicclient; \
+	done
+	set -e ; for pyvers in $(PYTHON3S); do \
+		python$$pyvers setup.py install --install-layout=deb \
+			--root $(CURDIR)/debian/python3-ironicclient; \
+	done
+	rm -f $(CURDIR)/debian/python*/usr/lib/python*/dist-packages/*.pth
 
 override_dh_auto_test:
 ifeq (,$(findstring nocheck, $(DEB_BUILD_OPTIONS)))
