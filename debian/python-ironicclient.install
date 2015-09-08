@@ -1,1 +1,1 @@
-tools/ironic.bash_completion /etc/bash_completion.d
+tools/ironic.bash_completion /usr/share/bash-completion/completions

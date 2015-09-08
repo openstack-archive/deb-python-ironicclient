@@ -2,6 +2,7 @@ python-ironicclient (0.8.0-1) experimental; urgency=medium
 
   * New upstream release.
   * Fixed (build-)depends for this release.
+  * Fixed installation folder for the bash completion script.
 
  -- Thomas Goirand <zigo@debian.org>  Tue, 08 Sep 2015 13:46:24 +0000
 
