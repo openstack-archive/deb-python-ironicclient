@@ -1,0 +1,11 @@
+#!/bin/sh
+
+set -e
+
+if [ "$1" = "configure" ] ; then
+	update-alternatives --install /usr/bin/ironic ironic /usr/bin/python2-ironic 300
+fi
+
+#DEBHELPER#
+
+exit 0

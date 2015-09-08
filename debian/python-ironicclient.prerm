@@ -1,0 +1,11 @@
+#!/bin/sh
+
+set -e
+
+if [ "$1" = "remove" ] ; then
+	update-alternatives --remove ironic /usr/bin/python2-ironic
+fi
+
+#DEBHELPER#
+
+exit 0
