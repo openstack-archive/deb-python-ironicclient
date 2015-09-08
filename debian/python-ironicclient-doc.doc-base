@@ -1,0 +1,9 @@
+Document: ironicclient-doc
+Title: ironicclient Documentation
+Author: N/A
+Abstract: Sphinx documentation for ironicclient
+Section: Programming/Python
+
+Format: HTML
+Index: /usr/share/doc/python-ironicclient-doc/html/index.html
+Files: /usr/share/doc/python-ironicclient-doc/html/*
