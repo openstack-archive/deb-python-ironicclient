@@ -1,6 +1,7 @@
 python-ironicclient (0.8.0-3) UNRELEASED; urgency=medium
 
-  * Blacklist test_utils.CommonParamsForListTest.test_sort_dir_invalid.
+  * Not running unit tests with Python 3.4: it stays stuck then eventually
+    dies in my Jenkins.
 
  -- Thomas Goirand <zigo@debian.org>  Thu, 17 Sep 2015 14:40:09 +0200
 
