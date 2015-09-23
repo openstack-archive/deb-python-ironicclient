@@ -1,9 +1,13 @@
-python-ironicclient (0.8.0-3) UNRELEASED; urgency=medium
+python-ironicclient (0.8.1-1) UNRELEASED; urgency=medium
 
+  [ Thomas Goirand ]
   * Not running unit tests with Python 3.4: it stays stuck then eventually
     dies in my Jenkins.
 
- -- Thomas Goirand <zigo@debian.org>  Thu, 17 Sep 2015 14:40:09 +0200
+  [ Corey Bryant ]
+  * New upstream release.
+
+ -- Corey Bryant <corey.bryant@canonical.com>  Wed, 23 Sep 2015 16:50:45 -0400
 
 python-ironicclient (0.8.0-2) experimental; urgency=medium
 
