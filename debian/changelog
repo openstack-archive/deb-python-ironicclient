@@ -1,4 +1,4 @@
-python-ironicclient (0.8.1-1) UNRELEASED; urgency=medium
+python-ironicclient (0.8.1-1) experimental; urgency=medium
 
   [ Thomas Goirand ]
   * Not running unit tests with Python 3.4: it stays stuck then eventually
