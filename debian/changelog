@@ -6,6 +6,7 @@ python-ironicclient (0.8.1-1) UNRELEASED; urgency=medium
 
   [ Corey Bryant ]
   * New upstream release.
+  * d/control: Update uploaders.
 
  -- Corey Bryant <corey.bryant@canonical.com>  Wed, 23 Sep 2015 16:50:45 -0400
 
