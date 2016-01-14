@@ -14,9 +14,9 @@
 
 import mock
 
+from ironicclient.common.apiclient import exceptions
+from ironicclient.common import cliutils
 from ironicclient.common import utils as commonutils
-from ironicclient.openstack.common.apiclient import exceptions
-from ironicclient.openstack.common import cliutils
 from ironicclient.tests.unit import utils
 import ironicclient.v1.chassis_shell as c_shell
 
@@ -24,7 +24,8 @@ import ironicclient.v1.chassis_shell as c_shell
 class ChassisShellTest(utils.BaseTestCase):
     def _get_client_mock_args(self, chassis=None, marker=None, limit=None,
                               sort_dir=None, sort_key=None, detail=False,
-                              fields=None):
+                              fields=None, associated=None, maintenance=None,
+                              provision_state=None):
         args = mock.MagicMock(spec=True)
         args.chassis = chassis
         args.marker = marker
@@ -33,6 +34,9 @@ class ChassisShellTest(utils.BaseTestCase):
         args.sort_key = sort_key
         args.detail = detail
         args.fields = fields
+        args.associated = associated
+        args.maintenance = maintenance
+        args.provision_state = provision_state
 
         return args
 
@@ -96,18 +100,17 @@ class ChassisShellTest(utils.BaseTestCase):
 
     def test_do_chassis_list_sort_key(self):
         client_mock = mock.MagicMock()
-        args = self._get_client_mock_args(sort_key='uuid',
+        args = self._get_client_mock_args(sort_key='created_at',
                                           detail=False)
 
         c_shell.do_chassis_list(client_mock, args)
-        client_mock.chassis.list.assert_called_once_with(sort_key='uuid',
+        client_mock.chassis.list.assert_called_once_with(sort_key='created_at',
                                                          detail=False)
 
     def test_do_chassis_list_wrong_sort_key(self):
         client_mock = mock.MagicMock()
         args = self._get_client_mock_args(sort_key='extra',
                                           detail=False)
-
         self.assertRaises(exceptions.CommandError,
                           c_shell.do_chassis_list,
                           client_mock, args)
@@ -127,6 +130,33 @@ class ChassisShellTest(utils.BaseTestCase):
         args = self._get_client_mock_args(sort_key='extra',
                                           detail=True)
 
+        self.assertRaises(exceptions.CommandError,
+                          c_shell.do_chassis_list,
+                          client_mock, args)
+        self.assertFalse(client_mock.chassis.list.called)
+
+    def test_do_chassis_list_sort_dir(self):
+        client_mock = mock.MagicMock()
+        args = self._get_client_mock_args(sort_dir='desc',
+                                          detail=False)
+
+        c_shell.do_chassis_list(client_mock, args)
+        client_mock.chassis.list.assert_called_once_with(sort_dir='desc',
+                                                         detail=False)
+
+    def test_do_chassis_list_detail_sort_dir(self):
+        client_mock = mock.MagicMock()
+        args = self._get_client_mock_args(sort_dir='asc',
+                                          detail=True)
+
+        c_shell.do_chassis_list(client_mock, args)
+        client_mock.chassis.list.assert_called_once_with(sort_dir='asc',
+                                                         detail=True)
+
+    def test_do_chassis_list_wrong_sort_dir(self):
+        client_mock = mock.MagicMock()
+        args = self._get_client_mock_args(sort_dir='abc',
+                                          detail=False)
         self.assertRaises(exceptions.CommandError,
                           c_shell.do_chassis_list,
                           client_mock, args)
@@ -164,6 +194,78 @@ class ChassisShellTest(utils.BaseTestCase):
         client_mock.chassis.list_nodes.assert_called_once_with(
             chassis_mock, detail=True)
 
+    def test_do_chassis_node_list_sort_key(self):
+        client_mock = mock.MagicMock()
+        chassis_mock = mock.MagicMock(spec_set=[])
+        args = self._get_client_mock_args(chassis_mock, sort_key='created_at',
+                                          detail=False)
+
+        c_shell.do_chassis_node_list(client_mock, args)
+        client_mock.chassis.list_nodes.assert_called_once_with(
+            chassis_mock, sort_key='created_at', detail=False)
+
+    def test_do_chassis_node_list_wrong_sort_key(self):
+        client_mock = mock.MagicMock()
+        chassis_mock = mock.MagicMock(spec_set=[])
+        args = self._get_client_mock_args(chassis_mock, sort_key='extra',
+                                          detail=False)
+
+        self.assertRaises(exceptions.CommandError,
+                          c_shell.do_chassis_node_list,
+                          client_mock, args)
+        self.assertFalse(client_mock.chassis.list_nodes.called)
+
+    def test_do_chassis_node_list_detail_sort_key(self):
+        client_mock = mock.MagicMock()
+        chassis_mock = mock.MagicMock(spec_set=[])
+        args = self._get_client_mock_args(chassis_mock, sort_key='created_at',
+                                          detail=True)
+
+        c_shell.do_chassis_node_list(client_mock, args)
+        client_mock.chassis.list_nodes.assert_called_once_with(
+            chassis_mock, sort_key='created_at', detail=True)
+
+    def test_do_chassis_node_list_detail_wrong_sort_key(self):
+        client_mock = mock.MagicMock()
+        chassis_mock = mock.MagicMock(spec_set=[])
+        args = self._get_client_mock_args(chassis_mock, sort_key='extra',
+                                          detail=True)
+
+        self.assertRaises(exceptions.CommandError,
+                          c_shell.do_chassis_node_list,
+                          client_mock, args)
+        self.assertFalse(client_mock.chassis.list_nodes.called)
+
+    def test_do_chassis_node_list_sort_dir(self):
+        client_mock = mock.MagicMock()
+        chassis_mock = mock.MagicMock(spec_set=[])
+        args = self._get_client_mock_args(chassis_mock, sort_dir='desc',
+                                          detail=False)
+
+        c_shell.do_chassis_node_list(client_mock, args)
+        client_mock.chassis.list_nodes.assert_called_once_with(
+            chassis_mock, sort_dir='desc', detail=False)
+
+    def test_do_chassis_node_list_detail_sort_dir(self):
+        client_mock = mock.MagicMock()
+        chassis_mock = mock.MagicMock(spec_set=[])
+        args = self._get_client_mock_args(chassis_mock, sort_dir='asc',
+                                          detail=True)
+
+        c_shell.do_chassis_node_list(client_mock, args)
+        client_mock.chassis.list_nodes.assert_called_once_with(
+            chassis_mock, sort_dir='asc', detail=True)
+
+    def test_do_chassis_node_list_wrong_sort_dir(self):
+        client_mock = mock.MagicMock()
+        chassis_mock = mock.MagicMock(spec_set=[])
+        args = self._get_client_mock_args(chassis_mock, sort_dir='abc',
+                                          detail=False)
+        self.assertRaises(exceptions.CommandError,
+                          c_shell.do_chassis_node_list,
+                          client_mock, args)
+        self.assertFalse(client_mock.chassis.list_nodes.called)
+
     def test_do_chassis_node_list_fields(self):
         client_mock = mock.MagicMock()
         chassis_mock = mock.MagicMock(spec_set=[])
@@ -172,6 +274,33 @@ class ChassisShellTest(utils.BaseTestCase):
         c_shell.do_chassis_node_list(client_mock, args)
         client_mock.chassis.list_nodes.assert_called_once_with(
             chassis_mock, fields=['uuid', 'power_state'], detail=False)
+
+    def test_do_chassis_node_list_associated(self):
+        client_mock = mock.MagicMock()
+        chassis_mock = mock.MagicMock(spec_set=[])
+        args = self._get_client_mock_args(chassis=chassis_mock,
+                                          associated=True)
+        c_shell.do_chassis_node_list(client_mock, args)
+        client_mock.chassis.list_nodes.assert_called_once_with(
+            chassis_mock, associated=True, detail=False)
+
+    def test_do_chassis_node_list_maintenance(self):
+        client_mock = mock.MagicMock()
+        chassis_mock = mock.MagicMock(spec_set=[])
+        args = self._get_client_mock_args(chassis=chassis_mock,
+                                          maintenance=True)
+        c_shell.do_chassis_node_list(client_mock, args)
+        client_mock.chassis.list_nodes.assert_called_once_with(
+            chassis_mock, maintenance=True, detail=False)
+
+    def test_do_chassis_node_list_provision_state(self):
+        client_mock = mock.MagicMock()
+        chassis_mock = mock.MagicMock(spec_set=[])
+        args = self._get_client_mock_args(chassis=chassis_mock,
+                                          provision_state='wait call-back')
+        c_shell.do_chassis_node_list(client_mock, args)
+        client_mock.chassis.list_nodes.assert_called_once_with(
+            chassis_mock, provision_state='wait call-back', detail=False)
 
     def test_do_chassis_node_list_invalid_fields(self):
         client_mock = mock.MagicMock()
@@ -186,6 +315,25 @@ class ChassisShellTest(utils.BaseTestCase):
         args = mock.MagicMock()
         c_shell.do_chassis_create(client_mock, args)
         client_mock.chassis.create.assert_called_once_with()
+
+    def test_do_chassis_create_valid_field(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.extra = ["key1=val1", "key2=val2"]
+        args.description = 'desc'
+        c_shell.do_chassis_create(client_mock, args)
+        client_mock.chassis.create.assert_called_once_with(extra={
+                                                           'key1': 'val1',
+                                                           'key2': 'val2'},
+                                                           description='desc')
+
+    def test_do_chassis_create_wrong_extra_field(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.extra = ["foo"]
+        args.description = 'desc'
+        self.assertRaises(exceptions.CommandError,
+                          c_shell.do_chassis_create, client_mock, args)
 
     def test_do_chassis_delete(self):
         client_mock = mock.MagicMock()
@@ -212,3 +360,14 @@ class ChassisShellTest(utils.BaseTestCase):
         patch = commonutils.args_array_to_patch(args.op, args.attributes[0])
         client_mock.chassis.update.assert_called_once_with('chassis_uuid',
                                                            patch)
+
+    def test_do_chassis_update_wrong_op(self):
+        client_mock = mock.MagicMock()
+        args = mock.MagicMock()
+        args.chassis = 'chassis_uuid'
+        args.op = 'foo'
+        args.attributes = [['arg1=val1', 'arg2=val2']]
+        self.assertRaises(exceptions.CommandError,
+                          c_shell.do_chassis_update,
+                          client_mock, args)
+        self.assertFalse(client_mock.chassis.update.called)

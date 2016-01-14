@@ -560,7 +560,7 @@ class ResponseBodyIterator(object):
             raise StopIteration()
 
 
-def _construct_http_client(endpoint,
+def _construct_http_client(endpoint=None,
                            session=None,
                            token=None,
                            auth_ref=None,
@@ -588,7 +588,7 @@ def _construct_http_client(endpoint,
                    'key_file': key_file,
                    'insecure': insecure}
 
-        dvars = [k for k, v in six.iteritems(ignored) if v]
+        dvars = [k for k, v in ignored.items() if v]
 
         if dvars:
             LOG.warn('The following arguments are ignored when using the '

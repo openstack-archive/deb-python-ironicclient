@@ -15,12 +15,10 @@
 
 import argparse
 
-import six
-
+from ironicclient.common.apiclient import exceptions
+from ironicclient.common import cliutils
 from ironicclient.common.i18n import _
 from ironicclient.common import utils
-from ironicclient.openstack.common.apiclient import exceptions
-from ironicclient.openstack.common import cliutils
 from ironicclient.v1 import resource_fields as res_fields
 
 
@@ -125,26 +123,22 @@ def do_node_list(cc, args):
                                                           args.maintenance)
     if args.provision_state is not None:
         params['provision_state'] = args.provision_state
-    params['detail'] = args.detail
 
     if args.detail:
         fields = res_fields.NODE_DETAILED_RESOURCE.fields
         field_labels = res_fields.NODE_DETAILED_RESOURCE.labels
-        sort_fields = res_fields.NODE_DETAILED_RESOURCE.sort_fields
-        sort_field_labels = res_fields.NODE_DETAILED_RESOURCE.sort_labels
     elif args.fields:
         utils.check_for_invalid_fields(
             args.fields[0], res_fields.NODE_DETAILED_RESOURCE.fields)
         resource = res_fields.Resource(args.fields[0])
         fields = resource.fields
         field_labels = resource.labels
-        sort_fields = res_fields.NODE_DETAILED_RESOURCE.sort_fields
-        sort_field_labels = res_fields.NODE_DETAILED_RESOURCE.sort_labels
     else:
         fields = res_fields.NODE_RESOURCE.fields
         field_labels = res_fields.NODE_RESOURCE.labels
-        sort_fields = fields
-        sort_field_labels = field_labels
+
+    sort_fields = res_fields.NODE_DETAILED_RESOURCE.sort_fields
+    sort_field_labels = res_fields.NODE_DETAILED_RESOURCE.sort_labels
 
     params.update(utils.common_params_for_list(args,
                                                sort_fields,
@@ -258,7 +252,7 @@ def do_node_update(cc, args):
               action='append',
               default=[],
               help=("Argument to be passed to the vendor-passthru method. Can "
-                    "be specified mutiple times."))
+                    "be specified multiple times."))
 @cliutils.arg('--http-method',
               metavar='<http-method>',
               choices=['POST', 'PUT', 'GET', 'DELETE', 'PATCH'],
@@ -325,8 +319,8 @@ def do_node_vendor_passthru(cc, args):
 def do_node_port_list(cc, args):
     """List the ports associated with a node."""
     if args.detail:
-        fields = res_fields.PORTS_DETAILED_RESOURCE.fields
-        field_labels = res_fields.PORTS_DETAILED_RESOURCE.labels
+        fields = res_fields.PORT_DETAILED_RESOURCE.fields
+        field_labels = res_fields.PORT_DETAILED_RESOURCE.labels
     elif args.fields:
         utils.check_for_invalid_fields(
             args.fields[0], res_fields.PORT_DETAILED_RESOURCE.fields)
@@ -337,7 +331,11 @@ def do_node_port_list(cc, args):
         fields = res_fields.PORT_RESOURCE.fields
         field_labels = res_fields.PORT_RESOURCE.labels
 
-    params = utils.common_params_for_list(args, fields, field_labels)
+    sort_fields = res_fields.PORT_DETAILED_RESOURCE.sort_fields
+    sort_field_labels = res_fields.PORT_DETAILED_RESOURCE.sort_labels
+
+    params = utils.common_params_for_list(args, sort_fields,
+                                          sort_field_labels)
 
     ports = cc.node.list_ports(args.node, **params)
     cliutils.print_list(ports, fields,
@@ -383,9 +381,9 @@ def do_node_set_power_state(cc, args):
     'provision_state',
     metavar='<provision-state>',
     choices=['active', 'deleted', 'rebuild', 'inspect', 'provide',
-             'manage'],
+             'manage', 'abort'],
     help="Supported states: 'active', 'deleted', 'rebuild', "
-         "'inspect', 'provide' or 'manage'")
+         "'inspect', 'provide', 'manage' or 'abort'")
 @cliutils.arg(
     '--config-drive',
     metavar='<config-drive>',
@@ -396,7 +394,7 @@ def do_node_set_power_state(cc, args):
           "config drive will be generated from it. This parameter is only "
           "valid when setting provision state to 'active'."))
 def do_node_set_provision_state(cc, args):
-    """Provision, rebuild, delete, inspect, provide or manage an instance."""
+    """Initiate a provisioning state change for a node."""
     if args.config_drive and args.provision_state != 'active':
         raise exceptions.CommandError(_('--config-drive is only valid when '
                                         'setting provision state to "active"'))
@@ -409,7 +407,7 @@ def do_node_validate(cc, args):
     """Validate a node's driver interfaces."""
     ifaces = cc.node.validate(args.node)
     obj_list = []
-    for key, value in six.iteritems(ifaces.to_dict()):
+    for key, value in ifaces.to_dict().items():
         data = {'interface': key}
         data.update(value)
         obj_list.append(type('iface', (object,), data))
@@ -474,3 +472,20 @@ def do_node_show_states(cc, args):
     """Show information about the node's states."""
     states = cc.node.states(args.node)
     cliutils.print_dict(states.to_dict(), wrap=72)
+
+
+@cliutils.arg('node', metavar='<node>', help="Name or UUID of the node.")
+def do_node_get_vendor_passthru_methods(cc, args):
+    """Get the vendor passthru methods for a node."""
+    methods = cc.node.get_vendor_passthru_methods(args.node)
+    data = []
+    for method, response in methods.items():
+        response['name'] = method
+        http_methods = ','.join(response['http_methods'])
+        response['http_methods'] = http_methods
+        data.append(response)
+    fields = res_fields.VENDOR_PASSTHRU_METHOD_RESOURCE.fields
+    field_labels = res_fields.VENDOR_PASSTHRU_METHOD_RESOURCE.labels
+    cliutils.print_list(data, fields,
+                        field_labels=field_labels,
+                        sortby_index=None)

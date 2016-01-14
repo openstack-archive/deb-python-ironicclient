@@ -13,8 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from ironicclient.common import cliutils
 from ironicclient.common import utils
-from ironicclient.openstack.common import cliutils
 from ironicclient.v1 import resource_fields as res_fields
 
 
@@ -108,21 +108,18 @@ def do_port_list(cc, args):
     if args.detail:
         fields = res_fields.PORT_DETAILED_RESOURCE.fields
         field_labels = res_fields.PORT_DETAILED_RESOURCE.labels
-        sort_fields = res_fields.PORT_DETAILED_RESOURCE.sort_fields
-        sort_field_labels = res_fields.PORT_DETAILED_RESOURCE.sort_labels
     elif args.fields:
         utils.check_for_invalid_fields(
             args.fields[0], res_fields.PORT_DETAILED_RESOURCE.fields)
         resource = res_fields.Resource(args.fields[0])
         fields = resource.fields
         field_labels = resource.labels
-        sort_fields = res_fields.PORT_DETAILED_RESOURCE.sort_fields
-        sort_field_labels = res_fields.PORT_DETAILED_RESOURCE.sort_labels
     else:
         fields = res_fields.PORT_RESOURCE.fields
         field_labels = res_fields.PORT_RESOURCE.labels
-        sort_fields = fields
-        sort_field_labels = field_labels
+
+    sort_fields = res_fields.PORT_DETAILED_RESOURCE.sort_fields
+    sort_field_labels = res_fields.PORT_DETAILED_RESOURCE.sort_labels
 
     params.update(utils.common_params_for_list(args,
                                                sort_fields,

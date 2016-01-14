@@ -30,7 +30,7 @@ import prettytable
 import six
 from six import moves
 
-from ironicclient.openstack.common._i18n import _
+from ironicclient.common.i18n import _
 
 
 class MissingArgs(Exception):
@@ -140,7 +140,7 @@ def isunauthenticated(func):
 
 def print_list(objs, fields, formatters=None, sortby_index=0,
                mixed_case_fields=None, field_labels=None):
-    """Print a list or objects as a table, one row per object.
+    """Print a list of objects or dict as a table, one row per object or dict.
 
     :param objs: iterable of :class:`Resource`
     :param fields: attributes that correspond to columns, in order
@@ -176,7 +176,10 @@ def print_list(objs, fields, formatters=None, sortby_index=0,
                     field_name = field.replace(' ', '_')
                 else:
                     field_name = field.lower().replace(' ', '_')
-                data = getattr(o, field_name, '')
+                if isinstance(o, dict):
+                    data = o.get(field_name, '')
+                else:
+                    data = getattr(o, field_name, '')
                 row.append(data)
         pt.add_row(row)
 
@@ -186,16 +189,17 @@ def print_list(objs, fields, formatters=None, sortby_index=0,
         print(encodeutils.safe_encode(pt.get_string(**kwargs)))
 
 
-def print_dict(dct, dict_property="Property", wrap=0):
+def print_dict(dct, dict_property="Property", wrap=0, dict_value='Value'):
     """Print a `dict` as a table of two columns.
 
     :param dct: `dict` to print
     :param dict_property: name of the first column
     :param wrap: wrapping for the second column
+    :param dict_value: header label for the value (second) column
     """
-    pt = prettytable.PrettyTable([dict_property, 'Value'])
+    pt = prettytable.PrettyTable([dict_property, dict_value])
     pt.align = 'l'
-    for k, v in six.iteritems(dct):
+    for k, v in sorted(dct.items()):
         # convert dict to str to check length
         if isinstance(v, dict):
             v = six.text_type(v)
