@@ -2,6 +2,7 @@ python-ironicclient (1.0.0-1) experimental; urgency=medium
 
   * New upstream release.
   * Fixed (build-)depends for this release.
+  * Fixed debian/copyright ordering.
 
  -- Thomas Goirand <zigo@debian.org>  Thu, 14 Jan 2016 05:19:51 +0000
 
