@@ -41,15 +41,15 @@ class ExceptionsArgsTest(test_base.BaseTestCase):
                          json_data=json_data),
             method,
             url)
-        self.assertTrue(isinstance(ex, ex_cls))
+        self.assertIsInstance(ex, ex_cls)
         if check_description:
             expected_msg = error_msg or json_data["error"]["message"]
             expected_details = error_details or json_data["error"]["details"]
-            self.assertEqual(ex.message, expected_msg)
-            self.assertEqual(ex.details, expected_details)
-        self.assertEqual(ex.method, method)
-        self.assertEqual(ex.url, url)
-        self.assertEqual(ex.http_status, status_code)
+            self.assertEqual(expected_msg, ex.message)
+            self.assertEqual(expected_details, ex.details)
+        self.assertEqual(method, ex.method)
+        self.assertEqual(url, ex.url)
+        self.assertEqual(status_code, ex.http_status)
 
     def test_from_response_known(self):
         method = "GET"
@@ -114,11 +114,11 @@ class ExceptionsArgsTest(test_base.BaseTestCase):
                          text=text_data1),
             method,
             url)
-        self.assertTrue(isinstance(ex, exceptions.BadRequest))
-        self.assertEqual(ex.details, text_data1)
-        self.assertEqual(ex.method, method)
-        self.assertEqual(ex.url, url)
-        self.assertEqual(ex.http_status, status_code)
+        self.assertIsInstance(ex, exceptions.BadRequest)
+        self.assertEqual(text_data1, ex.details)
+        self.assertEqual(method, ex.method)
+        self.assertEqual(url, ex.url)
+        self.assertEqual(status_code, ex.http_status)
 
     def test_from_response_with_text_response_format_with_no_body(self):
         method = "GET"
@@ -130,8 +130,8 @@ class ExceptionsArgsTest(test_base.BaseTestCase):
                          headers={"Content-Type": "text/html"}),
             method,
             url)
-        self.assertTrue(isinstance(ex, exceptions.Unauthorized))
-        self.assertEqual(ex.details, '')
-        self.assertEqual(ex.method, method)
-        self.assertEqual(ex.url, url)
-        self.assertEqual(ex.http_status, status_code)
+        self.assertIsInstance(ex, exceptions.Unauthorized)
+        self.assertEqual('', ex.details)
+        self.assertEqual(method, ex.method)
+        self.assertEqual(url, ex.url)
+        self.assertEqual(status_code, ex.http_status)

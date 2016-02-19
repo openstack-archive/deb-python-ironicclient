@@ -210,7 +210,21 @@ fake_responses = {
             {"ports": [PORT]},
         ),
     },
+    '/v1/nodes/%s/ports' % NODE1['name']:
+    {
+        'GET': (
+            {},
+            {"ports": [PORT]},
+        ),
+    },
     '/v1/nodes/%s/ports/detail' % NODE1['uuid']:
+    {
+        'GET': (
+            {},
+            {"ports": [PORT]},
+        ),
+    },
+    '/v1/nodes/%s/ports/detail' % NODE1['name']:
     {
         'GET': (
             {},
@@ -615,13 +629,23 @@ class NodeManagerTest(testtools.TestCase):
         self.assertEqual(expect, self.api.calls)
         self.assertEqual(NEW_DRIVER, node.driver)
 
-    def test_node_port_list(self):
+    def test_node_port_list_with_uuid(self):
         ports = self.mgr.list_ports(NODE1['uuid'])
         expect = [
             ('GET', '/v1/nodes/%s/ports' % NODE1['uuid'], {}, None),
         ]
         self.assertEqual(expect, self.api.calls)
-        self.assertEqual(1, len(ports))
+        self.assertThat(ports, HasLength(1))
+        self.assertEqual(PORT['uuid'], ports[0].uuid)
+        self.assertEqual(PORT['address'], ports[0].address)
+
+    def test_node_port_list_with_name(self):
+        ports = self.mgr.list_ports(NODE1['name'])
+        expect = [
+            ('GET', '/v1/nodes/%s/ports' % NODE1['name'], {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertThat(ports, HasLength(1))
         self.assertEqual(PORT['uuid'], ports[0].uuid)
         self.assertEqual(PORT['address'], ports[0].address)
 
@@ -674,13 +698,21 @@ class NodeManagerTest(testtools.TestCase):
         self.assertEqual(PORT['uuid'], ports[0].uuid)
         self.assertEqual(PORT['address'], ports[0].address)
 
-    def test_node_port_list_detail(self):
+    def test_node_port_list_detail_with_uuid(self):
         ports = self.mgr.list_ports(NODE1['uuid'], detail=True)
         expect = [
             ('GET', '/v1/nodes/%s/ports/detail' % NODE1['uuid'], {}, None),
         ]
         self.assertEqual(expect, self.api.calls)
-        self.assertEqual(1, len(ports))
+        self.assertThat(ports, HasLength(1))
+
+    def test_node_port_list_detail_with_name(self):
+        ports = self.mgr.list_ports(NODE1['name'], detail=True)
+        expect = [
+            ('GET', '/v1/nodes/%s/ports/detail' % NODE1['name'], {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertThat(ports, HasLength(1))
 
     def test_node_port_list_fields(self):
         ports = self.mgr.list_ports(NODE1['uuid'], fields=['uuid', 'address'])
@@ -689,7 +721,7 @@ class NodeManagerTest(testtools.TestCase):
              NODE1['uuid'], {}, None),
         ]
         self.assertEqual(expect, self.api.calls)
-        self.assertEqual(1, len(ports))
+        self.assertThat(ports, HasLength(1))
 
     def test_node_port_list_detail_and_fields_fail(self):
         self.assertRaises(exc.InvalidAttribute, self.mgr.list_ports,
@@ -703,7 +735,7 @@ class NodeManagerTest(testtools.TestCase):
             ('PUT', '/v1/nodes/%s/maintenance' % NODE1['uuid'], {}, body),
         ]
         self.assertEqual(expect, self.api.calls)
-        self.assertEqual(None, maintenance)
+        self.assertIsNone(maintenance)
 
     def test_node_set_maintenance_false(self):
         maintenance = self.mgr.set_maintenance(NODE1['uuid'], 'false')
@@ -711,7 +743,7 @@ class NodeManagerTest(testtools.TestCase):
             ('DELETE', '/v1/nodes/%s/maintenance' % NODE1['uuid'], {}, None),
         ]
         self.assertEqual(expect, self.api.calls)
-        self.assertEqual(None, maintenance)
+        self.assertIsNone(maintenance)
 
     def test_node_set_maintenance_on(self):
         maintenance = self.mgr.set_maintenance(NODE1['uuid'], 'on',
@@ -721,7 +753,7 @@ class NodeManagerTest(testtools.TestCase):
             ('PUT', '/v1/nodes/%s/maintenance' % NODE1['uuid'], {}, body),
         ]
         self.assertEqual(expect, self.api.calls)
-        self.assertEqual(None, maintenance)
+        self.assertIsNone(maintenance)
 
     def test_node_set_maintenance_off(self):
         maintenance = self.mgr.set_maintenance(NODE1['uuid'], 'off')
@@ -729,7 +761,7 @@ class NodeManagerTest(testtools.TestCase):
             ('DELETE', '/v1/nodes/%s/maintenance' % NODE1['uuid'], {}, None),
         ]
         self.assertEqual(expect, self.api.calls)
-        self.assertEqual(None, maintenance)
+        self.assertIsNone(maintenance)
 
     def test_node_set_maintenance_bad(self):
         self.assertRaises(exc.InvalidAttribute, self.mgr.set_maintenance,
@@ -743,7 +775,7 @@ class NodeManagerTest(testtools.TestCase):
             ('PUT', '/v1/nodes/%s/maintenance' % NODE1['uuid'], {}, body),
         ]
         self.assertEqual(expect, self.api.calls)
-        self.assertEqual(None, maintenance)
+        self.assertIsNone(maintenance)
 
     def test_node_set_power_state(self):
         power_state = self.mgr.set_power_state(NODE1['uuid'], "on")
