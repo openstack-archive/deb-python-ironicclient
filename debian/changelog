@@ -1,3 +1,9 @@
+python-ironicclient (1.1.0-1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+
+ -- David Della Vecchia <ddv@canonical.com>  Fri, 19 Feb 2016 15:43:06 -0500
+
 python-ironicclient (1.0.0-2) UNRELEASED; urgency=medium
 
   * Do not test with Py3, as it goes in an infinite loop in Trusty.
