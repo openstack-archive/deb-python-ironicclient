@@ -11,6 +11,9 @@ python-ironicclient (1.1.0-1) UNRELEASED; urgency=medium
   [ Thomas Goirand ]
   * Do not test with Py3, as it goes in an infinite loop in Trusty.
 
+  [ Ondřej Nový ]
+  * Fixed VCS URLs (https).
+
  -- Corey Bryant <corey.bryant@canonical.com>  Mon, 22 Feb 2016 15:47:28 -0500
 
 python-ironicclient (1.0.0-1) experimental; urgency=medium
