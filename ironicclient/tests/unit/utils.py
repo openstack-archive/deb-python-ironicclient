@@ -14,20 +14,13 @@
 #    under the License.
 
 import copy
-import datetime
 import os
 
 import fixtures
+import mock
 from oslo_utils import strutils
 import six
 import testtools
-
-from ironicclient.common import http
-
-
-DEFAULT_TEST_HOST = 'localhost'
-DEFAULT_TEST_REGION = 'regionhost'
-DEFAULT_TEST_PORT = '6385'
 
 
 class BaseTestCase(testtools.TestCase):
@@ -58,7 +51,7 @@ class FakeAPI(object):
 
     def raw_request(self, *args, **kwargs):
         response = self._request(*args, **kwargs)
-        body_iter = http.ResponseBodyIterator(six.StringIO(response[1]))
+        body_iter = iter(six.StringIO(response[1]))
         return FakeResponse(response[0]), body_iter
 
     def json_request(self, *args, **kwargs):
@@ -94,8 +87,9 @@ class FakeResponse(object):
         """
         self.headers = headers
         self.body = body
-        self.version = version
-        self.status = status
+        self.raw = mock.Mock()
+        self.raw.version = version
+        self.status_code = status
         self.reason = reason
 
     def getheaders(self):
@@ -113,45 +107,31 @@ class FakeResponse(object):
                  self.reason))
 
 
-class FakeServiceCatalog(object):
-    def url_for(self, endpoint_type, service_type, attr=None,
-                filter_value=None):
-        if attr == 'region' and filter_value:
-            return 'http://%s:%s/v1/f14b41234' % (DEFAULT_TEST_REGION,
-                                                  DEFAULT_TEST_PORT)
-        else:
-            return 'http://%s:%s/v1/f14b41234' % (DEFAULT_TEST_HOST,
-                                                  DEFAULT_TEST_PORT)
-
-
-class FakeKeystone(object):
-    service_catalog = FakeServiceCatalog()
-    timestamp = datetime.datetime.utcnow() + datetime.timedelta(days=5)
-
-    def __init__(self, auth_token):
-        self.auth_token = auth_token
-        self.auth_ref = {
-            'token': {'expires': FakeKeystone.timestamp.strftime(
-                      '%Y-%m-%dT%H:%M:%S.%f'),
-                      'id': 'd1a541311782870742235'}
-        }
-
-
 class FakeSessionResponse(object):
 
-    def __init__(self, headers, content=None, status_code=None):
+    def __init__(self, headers, content=None, status_code=None, version=None):
         self.headers = headers
         self.content = content
         self.status_code = status_code
+        self.raw = mock.Mock()
+        self.raw.version = version
+        self.reason = ''
+
+    def iter_content(self, chunk_size):
+        return iter(self.content)
 
 
 class FakeSession(object):
 
-    def __init__(self, headers, content=None, status_code=None):
+    def __init__(self, headers, content=None, status_code=None, version=None):
         self.headers = headers
         self.content = content
         self.status_code = status_code
+        self.version = version
+        self.verify = False
+        self.cert = ('test_cert', 'test_key')
 
     def request(self, url, method, **kwargs):
-        return FakeSessionResponse(self.headers, self.content,
-                                   self.status_code)
+        request = FakeSessionResponse(
+            self.headers, self.content, self.status_code, self.version)
+        return request

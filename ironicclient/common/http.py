@@ -16,6 +16,7 @@
 import copy
 from distutils.version import StrictVersion
 import functools
+import hashlib
 import json
 import logging
 import os
@@ -24,9 +25,11 @@ import ssl
 import textwrap
 import time
 
-from keystoneclient import adapter
+from keystoneauth1 import adapter
 from oslo_utils import strutils
+import requests
 import six
+from six.moves import http_client
 import six.moves.urllib.parse as urlparse
 
 from ironicclient.common import filecache
@@ -54,6 +57,10 @@ API_VERSION_SELECTED_STATES = ('user', 'negotiated', 'cached', 'default')
 
 DEFAULT_MAX_RETRIES = 5
 DEFAULT_RETRY_INTERVAL = 2
+SENSITIVE_HEADERS = ('X-Auth-Token',)
+
+
+SUPPORTED_ENDPOINT_SCHEME = ('http', 'https')
 
 
 def _trim_endpoint_api_version(url):
@@ -211,59 +218,58 @@ class HTTPClient(VersionNegotiationMixin):
                                                DEFAULT_MAX_RETRIES)
         self.conflict_retry_interval = kwargs.pop('retry_interval',
                                                   DEFAULT_RETRY_INTERVAL)
-        self.connection_params = self.get_connection_params(endpoint, **kwargs)
+        self.session = requests.Session()
 
-    @staticmethod
-    def get_connection_params(endpoint, **kwargs):
         parts = urlparse.urlparse(endpoint)
-
-        path = _trim_endpoint_api_version(parts.path)
-
-        _args = (parts.hostname, parts.port, path)
-        _kwargs = {'timeout': (float(kwargs.get('timeout'))
-                               if kwargs.get('timeout') else 600)}
-
-        if parts.scheme == 'https':
-            _class = VerifiedHTTPSConnection
-            _kwargs['ca_file'] = kwargs.get('ca_file', None)
-            _kwargs['cert_file'] = kwargs.get('cert_file', None)
-            _kwargs['key_file'] = kwargs.get('key_file', None)
-            _kwargs['insecure'] = kwargs.get('insecure', False)
-        elif parts.scheme == 'http':
-            _class = six.moves.http_client.HTTPConnection
-        else:
+        if parts.scheme not in SUPPORTED_ENDPOINT_SCHEME:
             msg = _('Unsupported scheme: %s') % parts.scheme
             raise exc.EndpointException(msg)
 
-        return (_class, _args, _kwargs)
+        if parts.scheme == 'https':
+            if kwargs.get('insecure') is True:
+                self.session.verify = False
+            elif kwargs.get('ca_file'):
+                self.session.verify = kwargs['ca_file']
+            self.session.cert = (kwargs.get('cert_file'),
+                                 kwargs.get('key_file'))
 
-    def get_connection(self):
-        _class = self.connection_params[0]
-        try:
-            return _class(*self.connection_params[1][0:2],
-                          **self.connection_params[2])
-        except six.moves.http_client.InvalidURL:
-            raise exc.EndpointException()
+    def _process_header(self, name, value):
+        """Redacts any sensitive header
+
+        Redact a header that contains sensitive information, by returning an
+        updated header with the sha1 hash of that value. The redacted value is
+        prefixed by '{SHA1}' because that's the convention used within
+        OpenStack.
+
+        :returns: A tuple of (name, value)
+                  name: the safe encoding format of name
+                  value: the redacted value if name is x-auth-token,
+                         or the safe encoding format of name
+
+        """
+        if name in SENSITIVE_HEADERS:
+            v = value.encode('utf-8')
+            h = hashlib.sha1(v)
+            d = h.hexdigest()
+            return (name, "{SHA1}%s" % d)
+        else:
+            return (name, value)
 
     def log_curl_request(self, method, url, kwargs):
         curl = ['curl -i -X %s' % method]
 
         for (key, value) in kwargs['headers'].items():
-            header = '-H \'%s: %s\'' % (key, value)
+            header = '-H \'%s: %s\'' % self._process_header(key, value)
             curl.append(header)
 
-        conn_params_fmt = [
-            ('key_file', '--key %s'),
-            ('cert_file', '--cert %s'),
-            ('ca_file', '--cacert %s'),
-        ]
-        for (key, fmt) in conn_params_fmt:
-            value = self.connection_params[2].get(key)
-            if value:
-                curl.append(fmt % value)
-
-        if self.connection_params[2].get('insecure'):
+        if not self.session.verify:
             curl.append('-k')
+        elif isinstance(self.session.verify, six.string_types):
+            curl.append('--cacert %s' % self.session.verify)
+
+        if self.session.cert:
+            curl.append('--cert %s' % self.session.cert[0])
+            curl.append('--key %s' % self.session.cert[1])
 
         if 'body' in kwargs:
             body = strutils.mask_password(kwargs['body'])
@@ -274,9 +280,12 @@ class HTTPClient(VersionNegotiationMixin):
 
     @staticmethod
     def log_http_response(resp, body=None):
-        status = (resp.version / 10.0, resp.status, resp.reason)
+        # NOTE(aarefiev): resp.raw is urllib3 response object, it's used
+        # only to get 'version', response from request with 'stream = True'
+        # should be used for raw reading.
+        status = (resp.raw.version / 10.0, resp.status_code, resp.reason)
         dump = ['\nHTTP/%.1f %s %s' % status]
-        dump.extend(['%s: %s' % (k, v) for k, v in resp.getheaders()])
+        dump.extend(['%s: %s' % (k, v) for k, v in resp.headers.items()])
         dump.append('')
         if body:
             body = strutils.mask_password(body)
@@ -284,22 +293,19 @@ class HTTPClient(VersionNegotiationMixin):
         LOG.debug('\n'.join(dump))
 
     def _make_connection_url(self, url):
-        (_class, _args, _kwargs) = self.connection_params
-        base_url = _args[2]
-        return '%s/%s' % (base_url, url.lstrip('/'))
+        return urlparse.urljoin(self.endpoint_trimmed, url)
 
     def _parse_version_headers(self, resp):
-        return self._generic_parse_version_headers(resp.getheader)
+        return self._generic_parse_version_headers(resp.headers.get)
 
     def _make_simple_request(self, conn, method, url):
-        conn.request(method, self._make_connection_url(url))
-        return conn.getresponse()
+        return conn.request(method, self._make_connection_url(url))
 
     @with_retries
     def _http_request(self, url, method, **kwargs):
         """Send an http request with the specified characteristics.
 
-        Wrapper around httplib.HTTP(S)Connection.request to handle tasks such
+        Wrapper around request.Session.request to handle tasks such
         as setting headers and error handling.
         """
         # Copy the kwargs so we can reuse the original in case of redirects
@@ -312,53 +318,63 @@ class HTTPClient(VersionNegotiationMixin):
             kwargs['headers'].setdefault('X-Auth-Token', self.auth_token)
 
         self.log_curl_request(method, url, kwargs)
-        conn = self.get_connection()
 
+        # NOTE(aarefiev): This is for backwards compatibility, request
+        # expected body in 'data' field, previously we used httplib,
+        # which expected 'body' field.
+        body = kwargs.pop('body', None)
+        if body:
+            kwargs['data'] = body
+
+        conn_url = self._make_connection_url(url)
         try:
-            conn_url = self._make_connection_url(url)
-            conn.request(method, conn_url, **kwargs)
-            resp = conn.getresponse()
+            resp = self.session.request(method,
+                                        conn_url,
+                                        **kwargs)
 
             # TODO(deva): implement graceful client downgrade when connecting
             # to servers that did not support microversions. Details here:
             # http://specs.openstack.org/openstack/ironic-specs/specs/kilo/api-microversions.html#use-case-3b-new-client-communicating-with-a-old-ironic-user-specified  # noqa
 
-            if resp.status == 406:
-                negotiated_ver = self.negotiate_version(conn, resp)
+            if resp.status_code == http_client.NOT_ACCEPTABLE:
+                negotiated_ver = self.negotiate_version(self.session, resp)
                 kwargs['headers']['X-OpenStack-Ironic-API-Version'] = (
                     negotiated_ver)
                 return self._http_request(url, method, **kwargs)
 
-        except socket.gaierror as e:
-            message = (_("Error finding address for %(url)s: %(e)s")
-                       % dict(url=url, e=e))
-            raise exc.EndpointNotFound(message)
-        except (socket.error, socket.timeout) as e:
-            endpoint = self.endpoint
-            message = (_("Error communicating with %(endpoint)s %(e)s")
-                       % dict(endpoint=endpoint, e=e))
+        except requests.exceptions.RequestException as e:
+            message = (_("Error has occurred while handling "
+                       "request for %(url)s: %(e)s") %
+                       dict(url=conn_url, e=e))
+            # NOTE(aarefiev): not valid request(invalid url, missing schema,
+            # and so on), retrying is not needed.
+            if isinstance(e, ValueError):
+                raise exc.ValidationError(message)
+
             raise exc.ConnectionRefused(message)
 
-        body_iter = ResponseBodyIterator(resp)
+        body_iter = resp.iter_content(chunk_size=CHUNKSIZE)
 
         # Read body into string if it isn't obviously image data
         body_str = None
-        if resp.getheader('content-type', None) != 'application/octet-stream':
+        if resp.headers.get('Content-Type') != 'application/octet-stream':
             body_str = ''.join([chunk for chunk in body_iter])
             self.log_http_response(resp, body_str)
             body_iter = six.StringIO(body_str)
         else:
             self.log_http_response(resp)
 
-        if 400 <= resp.status < 600:
+        if resp.status_code >= http_client.BAD_REQUEST:
             error_json = _extract_error_json(body_str)
             raise exc.from_response(
                 resp, error_json.get('faultstring'),
                 error_json.get('debuginfo'), method, url)
-        elif resp.status in (301, 302, 305):
+        elif resp.status_code in (http_client.MOVED_PERMANENTLY,
+                                  http_client.FOUND,
+                                  http_client.USE_PROXY):
             # Redirected. Reissue the request to the new location.
             return self._http_request(resp['location'], method, **kwargs)
-        elif resp.status == 300:
+        elif resp.status_code == http_client.MULTIPLE_CHOICES:
             raise exc.from_response(resp, method=method, url=url)
 
         return resp, body_iter
@@ -372,9 +388,11 @@ class HTTPClient(VersionNegotiationMixin):
             kwargs['body'] = json.dumps(kwargs['body'])
 
         resp, body_iter = self._http_request(url, method, **kwargs)
-        content_type = resp.getheader('content-type', None)
+        content_type = resp.headers.get('Content-Type')
 
-        if resp.status == 204 or resp.status == 205 or content_type is None:
+        if (resp.status_code in (http_client.NO_CONTENT,
+                                 http_client.RESET_CONTENT)
+                or content_type is None):
             return resp, list()
 
         if 'application/json' in content_type:
@@ -499,20 +517,21 @@ class SessionClient(VersionNegotiationMixin, adapter.LegacyJsonAdapter):
 
         resp = self.session.request(url, method,
                                     raise_exc=False, **kwargs)
-        if resp.status_code == 406:
+        if resp.status_code == http_client.NOT_ACCEPTABLE:
             negotiated_ver = self.negotiate_version(self.session, resp)
             kwargs['headers']['X-OpenStack-Ironic-API-Version'] = (
                 negotiated_ver)
             return self._http_request(url, method, **kwargs)
-        if 400 <= resp.status_code < 600:
+        if resp.status_code >= http_client.BAD_REQUEST:
             error_json = _extract_error_json(resp.content)
             raise exc.from_response(resp, error_json.get('faultstring'),
                                     error_json.get('debuginfo'), method, url)
-        elif resp.status_code in (301, 302, 305):
+        elif resp.status_code in (http_client.MOVED_PERMANENTLY,
+                                  http_client.FOUND, http_client.USE_PROXY):
             # Redirected. Reissue the request to the new location.
             location = resp.headers.get('location')
             resp = self._http_request(location, method, **kwargs)
-        elif resp.status_code == 300:
+        elif resp.status_code == http_client.MULTIPLE_CHOICES:
             raise exc.from_response(resp, method=method, url=url)
         return resp
 
@@ -528,7 +547,8 @@ class SessionClient(VersionNegotiationMixin, adapter.LegacyJsonAdapter):
         body = resp.content
         content_type = resp.headers.get('content-type', None)
         status = resp.status_code
-        if status == 204 or status == 205 or content_type is None:
+        if (status in (http_client.NO_CONTENT, http_client.RESET_CONTENT) or
+                content_type is None):
             return resp, list()
         if 'application/json' in content_type:
             try:
@@ -545,24 +565,6 @@ class SessionClient(VersionNegotiationMixin, adapter.LegacyJsonAdapter):
         kwargs['headers'].setdefault('Content-Type',
                                      'application/octet-stream')
         return self._http_request(url, method, **kwargs)
-
-
-class ResponseBodyIterator(object):
-    """A class that acts as an iterator over an HTTP response."""
-
-    def __init__(self, resp):
-        self.resp = resp
-
-    def __iter__(self):
-        while True:
-            yield self.next()
-
-    def next(self):
-        chunk = self.resp.read(CHUNKSIZE)
-        if chunk:
-            return chunk
-        else:
-            raise StopIteration()
 
 
 def _construct_http_client(endpoint=None,

@@ -116,7 +116,7 @@ class TestBaremetalCreate(TestBaremetal):
         self.baremetal_mock.node.create.assert_called_once_with(**kwargs)
 
     def test_baremetal_create_with_chassis(self):
-        self.check_with_options(['--chassis', 'chassis_uuid'],
+        self.check_with_options(['--chassis-uuid', 'chassis_uuid'],
                                 [('chassis_uuid', 'chassis_uuid')],
                                 {'chassis_uuid': 'chassis_uuid'})
 
@@ -275,8 +275,10 @@ class TestBaremetalList(TestBaremetal):
                    'Driver Internal Info', 'Extra', 'Instance Info',
                    'Instance UUID', 'Last Error', 'Maintenance',
                    'Maintenance Reason', 'Power State', 'Properties',
-                   'Provisioning State', 'Provision Updated At', 'Reservation',
+                   'Provisioning State', 'Provision Updated At',
+                   'Current RAID configuration', 'Reservation',
                    'Target Power State', 'Target Provision State',
+                   'Target RAID configuration',
                    'Updated At', 'Inspection Finished At',
                    'Inspection Started At', 'UUID', 'Name')
         self.assertEqual(collist, columns)
@@ -297,6 +299,8 @@ class TestBaremetalList(TestBaremetal):
             baremetal_fakes.baremetal_power_state,
             '',
             baremetal_fakes.baremetal_provision_state,
+            '',
+            '',
             '',
             '',
             '',

@@ -29,6 +29,7 @@ import copy
 
 from oslo_utils import strutils
 import six
+from six.moves import http_client
 from six.moves.urllib import parse
 
 from ironicclient.common.apiclient import exceptions
@@ -148,7 +149,7 @@ class BaseManager(HookableMixin):
         :param url: a partial URL, e.g., '/servers'
         """
         resp = self.client.head(url)
-        return resp.status_code == 204
+        return resp.status_code == http_client.NO_CONTENT
 
     def _post(self, url, json, response_key=None, return_raw=False):
         """Create an object.
@@ -504,8 +505,6 @@ class Resource(object):
         # two resources of different types are not equal
         if not isinstance(other, self.__class__):
             return False
-        if hasattr(self, 'id') and hasattr(other, 'id'):
-            return self.id == other.id
         return self._info == other._info
 
     def is_loaded(self):

@@ -42,7 +42,7 @@ class NodeManager(base.CreateManager):
 
     def list(self, associated=None, maintenance=None, marker=None, limit=None,
              detail=False, sort_key=None, sort_dir=None, fields=None,
-             provision_state=None):
+             provision_state=None, driver=None):
         """Retrieve a list of nodes.
 
         :param associated: Optional. Either a Boolean or a string
@@ -80,6 +80,9 @@ class NodeManager(base.CreateManager):
                        of the resource to be returned. Can not be used
                        when 'detail' is set.
 
+        :param driver: Optional. String value to get only nodes using that
+                       driver.
+
         :returns: A list of nodes.
 
         """
@@ -98,6 +101,8 @@ class NodeManager(base.CreateManager):
             filters.append('maintenance=%s' % maintenance)
         if provision_state is not None:
             filters.append('provision_state=%s' % provision_state)
+        if driver is not None:
+            filters.append('driver=%s' % driver)
 
         path = ''
         if detail:
@@ -255,11 +260,41 @@ class NodeManager(base.CreateManager):
         target = {'target': _power_states.get(state, state)}
         return self.update(path, target, http_method='PUT')
 
+    def set_target_raid_config(self, node_ident, target_raid_config):
+        """Sets target_raid_config for a node.
+
+        :param node_ident: Node identifier
+        :param target_raid_config: A dictionary with the target RAID
+            configuration; may be empty.
+        :returns: status of the request
+        """
+        path = "%s/states/raid" % node_ident
+        return self.update(path, target_raid_config, http_method='PUT')
+
     def validate(self, node_uuid):
         path = "%s/validate" % node_uuid
         return self.get(path)
 
-    def set_provision_state(self, node_uuid, state, configdrive=None):
+    def set_provision_state(self, node_uuid, state, configdrive=None,
+                            cleansteps=None):
+        """Set the provision state for the node.
+
+        :param node_uuid: The UUID or name of the node.
+        :param state: The desired provision state. One of 'active', 'deleted',
+             'rebuild', 'inspect', 'provide', 'manage', 'clean', 'abort'.
+        :param configdrive: A gzipped, base64-encoded configuration drive
+            string OR the path to the configuration drive file OR the path to
+            a directory containing the config drive files. In case it's a
+            directory, a config drive will be generated from it. This is only
+            valid when setting state to 'active'.
+        :param cleansteps: The clean steps as a list of clean-step
+            dictionaries; each dictionary should have keys 'interface' and
+            'step', and optional key 'args'. This must be specified (and is
+            only valid) when setting provision-state to 'clean'.
+        :raises: InvalidAttribute if there was an error with the clean steps
+        :returns: The status of the request
+        """
+
         path = "%s/states/provision" % node_uuid
         body = {'target': state}
         if configdrive:
@@ -270,6 +305,9 @@ class NodeManager(base.CreateManager):
                 configdrive = utils.make_configdrive(configdrive)
 
             body['configdrive'] = configdrive
+        elif cleansteps:
+            body['clean_steps'] = cleansteps
+
         return self.update(path, body, http_method='PUT')
 
     def states(self, node_uuid):

@@ -16,6 +16,7 @@ import copy
 import tempfile
 
 import mock
+import six
 import testtools
 from testtools.matchers import HasLength
 
@@ -23,6 +24,10 @@ from ironicclient.common import utils as common_utils
 from ironicclient import exc
 from ironicclient.tests.unit import utils
 from ironicclient.v1 import node
+
+if six.PY3:
+    import io
+    file = io.BytesIO
 
 NODE1 = {'id': 123,
          'uuid': '66666666-7777-8888-9999-000000000000',
@@ -160,6 +165,13 @@ fake_responses = {
             {"nodes": [NODE1]},
         )
     },
+    '/v1/nodes/?driver=fake':
+    {
+        'GET': (
+            {},
+            {"nodes": [NODE1]},
+        )
+    },
     '/v1/nodes/detail?instance_uuid=%s' % NODE2['instance_uuid']:
     {
         'GET': (
@@ -275,6 +287,13 @@ fake_responses = {
         'GET': (
             {},
             NODE_STATES,
+        ),
+    },
+    '/v1/nodes/%s/states/raid' % NODE1['uuid']:
+    {
+        'PUT': (
+            {},
+            None,
         ),
     },
     '/v1/nodes/%s/states/console' % NODE1['uuid']:
@@ -520,6 +539,15 @@ class NodeManagerTest(testtools.TestCase):
     def test_node_list_provision_state_fail(self):
         self.assertRaises(KeyError, self.mgr.list,
                           provision_state="test")
+
+    def test_node_list_driver(self):
+        nodes = self.mgr.list(driver="fake")
+        expect = [
+            ('GET', '/v1/nodes/?driver=fake', {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertThat(nodes, HasLength(1))
+        self.assertEqual(NODE1['uuid'], getattr(nodes[0], 'uuid'))
 
     def test_node_list_no_maintenance(self):
         nodes = self.mgr.list(maintenance=False)
@@ -786,6 +814,15 @@ class NodeManagerTest(testtools.TestCase):
         self.assertEqual(expect, self.api.calls)
         self.assertEqual('power on', power_state.target_power_state)
 
+    def test_set_target_raid_config(self):
+        self.mgr.set_target_raid_config(
+            NODE1['uuid'], {'fake': 'config'})
+
+        expect = [('PUT', '/v1/nodes/%s/states/raid' % NODE1['uuid'],
+                  {},
+                  {'fake': 'config'})]
+        self.assertEqual(expect, self.api.calls)
+
     def test_node_validate(self):
         ifaces = self.mgr.validate(NODE1['uuid'])
         expect = [
@@ -844,6 +881,17 @@ class NodeManagerTest(testtools.TestCase):
             mock_configdrive.assert_called_once_with(dirname)
 
         body = {'target': target_state, 'configdrive': 'fake-configdrive'}
+        expect = [
+            ('PUT', '/v1/nodes/%s/states/provision' % NODE1['uuid'], {}, body),
+        ]
+        self.assertEqual(expect, self.api.calls)
+
+    def test_node_set_provision_state_with_cleansteps(self):
+        cleansteps = [{"step": "upgrade", "interface": "deploy"}]
+        target_state = 'clean'
+        self.mgr.set_provision_state(NODE1['uuid'], target_state,
+                                     cleansteps=cleansteps)
+        body = {'target': target_state, 'clean_steps': cleansteps}
         expect = [
             ('PUT', '/v1/nodes/%s/states/provision' % NODE1['uuid'], {}, body),
         ]

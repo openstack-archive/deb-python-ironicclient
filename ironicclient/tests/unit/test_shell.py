@@ -16,14 +16,16 @@ import uuid
 
 import fixtures
 import httplib2
-from keystoneclient import exceptions as keystone_exc
-from keystoneclient import fixture as ks_fixture
+from keystoneauth1 import exceptions as keystone_exc
+from keystoneauth1 import fixture as ks_fixture
 import mock
 import requests_mock
 import six
 import testtools
 from testtools import matchers
 
+from ironicclient import client
+from ironicclient.common import http
 from ironicclient import exc
 from ironicclient import shell as ironic_shell
 from ironicclient.tests.unit import utils
@@ -53,13 +55,19 @@ FAKE_ENV_KEYSTONE_V3 = {
     'OS_PROJECT_DOMAIN_ID': 'default',
 }
 
+FAKE_ENV_KEYSTONE_V2_TOKEN = {
+    'OS_AUTH_TOKEN': 'admin_token',
+    'OS_TENANT_NAME': 'tenant_name',
+    'OS_AUTH_URL': V2_URL
+}
+
 
 class ShellTest(utils.BaseTestCase):
     re_options = re.DOTALL | re.MULTILINE
 
     # Patch os.environ to avoid required auth info.
-    def make_env(self, exclude=None):
-        env = dict((k, v) for k, v in FAKE_ENV.items() if k != exclude)
+    def make_env(self, exclude=None, environ_dict=FAKE_ENV):
+        env = dict((k, v) for k, v in environ_dict.items() if k != exclude)
         self.useFixture(fixtures.MonkeyPatch('os.environ', env))
 
     def setUp(self):
@@ -120,30 +128,59 @@ class ShellTest(utils.BaseTestCase):
         self.make_env(exclude='OS_USERNAME')
         self.test_help()
 
-    @mock.patch.object(ironic_shell.IronicShell, '_get_keystone_auth',
-                       side_effect=keystone_exc.ConnectionRefused)
+    @mock.patch.object(client, 'get_client',
+                       side_effect=keystone_exc.ConnectFailure)
     @mock.patch('sys.stdin', side_effect=mock.MagicMock)
     @mock.patch('getpass.getpass', return_value='password')
-    def test_password_prompted(self, mock_getpass, mock_stdin, mock_ks):
+    def test_password_prompted(self, mock_getpass, mock_stdin, mock_client):
         self.make_env(exclude='OS_PASSWORD')
-        # We will get a Connection Refused because there is no keystone.
-        self.assertRaises(keystone_exc.ConnectionRefused,
+        # We will get a ConnectFailure because there is no keystone.
+        self.assertRaises(keystone_exc.ConnectFailure,
                           self.shell, 'node-list')
         expected_kwargs = {
-            'username': FAKE_ENV['OS_USERNAME'],
-            'user_domain_id': '',
-            'user_domain_name': '',
-            'password': FAKE_ENV['OS_PASSWORD'],
-            'auth_token': '',
-            'project_id': '',
-            'project_name': FAKE_ENV['OS_TENANT_NAME'],
-            'project_domain_id': '',
-            'project_domain_name': '',
+            'ironic_url': '', 'os_auth_url': FAKE_ENV['OS_AUTH_URL'],
+            'os_tenant_id': '', 'os_tenant_name': FAKE_ENV['OS_TENANT_NAME'],
+            'os_username': FAKE_ENV['OS_USERNAME'], 'os_user_domain_id': '',
+            'os_user_domain_name': '', 'os_password': FAKE_ENV['OS_PASSWORD'],
+            'os_auth_token': '', 'os_project_id': '',
+            'os_project_name': '', 'os_project_domain_id': '',
+            'os_project_domain_name': '', 'os_region_name': '',
+            'os_service_type': '', 'os_endpoint_type': '', 'os_cacert': None,
+            'os_cert': None, 'os_key': None,
+            'max_retries': http.DEFAULT_MAX_RETRIES,
+            'retry_interval': http.DEFAULT_RETRY_INTERVAL,
+            'os_ironic_api_version': None, 'timeout': 600, 'insecure': False
         }
-        mock_ks.assert_called_once_with(mock.ANY, FAKE_ENV['OS_AUTH_URL'],
-                                        **expected_kwargs)
+        mock_client.assert_called_once_with(1, **expected_kwargs)
         # Make sure we are actually prompted.
         mock_getpass.assert_called_with('OpenStack Password: ')
+
+    @mock.patch.object(client, 'get_client',
+                       side_effect=keystone_exc.ConnectFailure)
+    @mock.patch('getpass.getpass', return_value='password')
+    def test_token_auth(self, mock_getpass, mock_client):
+        self.make_env(environ_dict=FAKE_ENV_KEYSTONE_V2_TOKEN)
+        # We will get a ConnectFailure because there is no keystone.
+        self.assertRaises(keystone_exc.ConnectFailure,
+                          self.shell, 'node-list')
+        expected_kwargs = {
+            'ironic_url': '',
+            'os_auth_url': FAKE_ENV_KEYSTONE_V2_TOKEN['OS_AUTH_URL'],
+            'os_tenant_id': '',
+            'os_tenant_name': FAKE_ENV_KEYSTONE_V2_TOKEN['OS_TENANT_NAME'],
+            'os_username': '', 'os_user_domain_id': '',
+            'os_user_domain_name': '', 'os_password': '',
+            'os_auth_token': FAKE_ENV_KEYSTONE_V2_TOKEN['OS_AUTH_TOKEN'],
+            'os_project_id': '', 'os_project_name': '',
+            'os_project_domain_id': '', 'os_project_domain_name': '',
+            'os_region_name': '', 'os_service_type': '',
+            'os_endpoint_type': '', 'os_cacert': None, 'os_cert': None,
+            'os_key': None, 'max_retries': http.DEFAULT_MAX_RETRIES,
+            'retry_interval': http.DEFAULT_RETRY_INTERVAL,
+            'os_ironic_api_version': None, 'timeout': 600, 'insecure': False
+        }
+        mock_client.assert_called_once_with(1, **expected_kwargs)
+        self.assertFalse(mock_getpass.called)
 
     @mock.patch('sys.stdin', side_effect=mock.MagicMock)
     @mock.patch('getpass.getpass', side_effect=EOFError)

@@ -1,4 +1,4 @@
-# Copyright (c) 2015 Mirantis, Inc.
+# Copyright (c) 2016 Mirantis, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -42,6 +42,10 @@ class FunctionalTestBase(base.ClientTestBase):
                                     password=config['os_password'],
                                     tenant_name=config['os_tenant_name'],
                                     uri=config['os_auth_url'])
+            for keystone_object in 'user', 'project':
+                domain_attr = 'os_%s_domain_id' % keystone_object
+                if config.get(domain_attr):
+                    setattr(self, domain_attr, config[domain_attr])
         else:
             self.ironic_url = config['ironic_url']
             self.os_auth_token = config['os_auth_token']
@@ -66,19 +70,26 @@ class FunctionalTestBase(base.ClientTestBase):
                 'one of: [keystone, noauth]' % auth_strategy)
 
         conf_settings = []
+        keystone_v3_conf_settings = []
         if auth_strategy == 'keystone':
             conf_settings += ['os_auth_url', 'os_username',
                               'os_password', 'os_tenant_name']
+            keystone_v3_conf_settings += ['os_user_domain_id',
+                                          'os_project_domain_id']
         else:
             conf_settings += ['os_auth_token', 'ironic_url']
 
         cli_flags = {}
         missing = []
-        for c in conf_settings:
+        for c in conf_settings + keystone_v3_conf_settings:
             try:
                 cli_flags[c] = config.get('functional', c)
             except config_parser.NoOptionError:
-                missing.append(c)
+                # NOTE(vdrok): Here we ignore the absence of KS v3 options as
+                # v2 may be used. Keystone client will do the actual check of
+                # the parameters' correctness.
+                if c not in keystone_v3_conf_settings:
+                    missing.append(c)
         if missing:
             self.fail('Missing required setting in test.conf (%(conf)s) for '
                       'auth_strategy=%(auth)s: %(missing)s' %
@@ -122,6 +133,13 @@ class FunctionalTestBase(base.ClientTestBase):
             if hasattr(self, 'os_auth_token'):
                 return self._cmd_no_auth('ironic', action, flags, params)
             else:
+                for keystone_object in 'user', 'project':
+                    domain_attr = 'os_%s_domain_id' % keystone_object
+                    if hasattr(self, domain_attr):
+                        flags += ' --os-%(ks_obj)s-domain-id %(value)s' % {
+                            'ks_obj': keystone_object,
+                            'value': getattr(self, domain_attr)
+                        }
                 return self.client.cmd_with_auth('ironic',
                                                  action, flags, params)
         except exceptions.CommandFailed as e:
@@ -253,3 +271,37 @@ class FunctionalTestBase(base.ClientTestBase):
     def get_drivers_names(self):
         driver_list = self.list_driver()
         return [x['Supported driver(s)'] for x in driver_list]
+
+    def delete_chassis(self, chassis_id):
+        chassis_list = self.list_chassis()
+
+        if utils.get_object(chassis_list, chassis_id):
+            self.ironic('chassis-delete', params=chassis_id)
+
+    def get_chassis_uuids_from_chassis_list(self):
+        chassis_list = self.list_chassis()
+        return [x['UUID'] for x in chassis_list]
+
+    def create_chassis(self, params=''):
+        chassis = self.ironic('chassis-create', params=params)
+
+        if not chassis:
+            self.fail('Ironic chassis has not been created!')
+
+        chassis = utils.get_dict_from_output(chassis)
+        self.addCleanup(self.delete_chassis, chassis['uuid'])
+        return chassis
+
+    def list_chassis(self, params=''):
+        return self.ironic('chassis-list', params=params)
+
+    def show_chassis(self, chassis_id, params=''):
+        chassis_show = self.ironic('chassis-show',
+                                   params='{0} {1}'.format(chassis_id, params))
+        return utils.get_dict_from_output(chassis_show)
+
+    def update_chassis(self, chassis_id, operation, params):
+        updated_chassis = self.ironic(
+            'chassis-update',
+            params='{0} {1} {2}'.format(chassis_id, operation, params))
+        return utils.get_dict_from_output(updated_chassis)

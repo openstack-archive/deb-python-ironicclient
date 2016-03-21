@@ -14,21 +14,67 @@
 #    under the License.
 
 import argparse
+import json
+import os
+import sys
 
 from ironicclient.common.apiclient import exceptions
 from ironicclient.common import cliutils
 from ironicclient.common.i18n import _
 from ironicclient.common import utils
+from ironicclient import exc
 from ironicclient.v1 import resource_fields as res_fields
 
 
-def _print_node_show(node, fields=None):
+def _print_node_show(node, fields=None, json=False):
     if fields is None:
         fields = res_fields.NODE_DETAILED_RESOURCE.fields
 
     data = dict(
         [(f, getattr(node, f, '')) for f in fields])
-    cliutils.print_dict(data, wrap=72)
+    cliutils.print_dict(data, wrap=72, json_flag=json)
+
+
+def _get_from_stdin(info_desc):
+    """Read information from stdin.
+
+    :param info_desc: A string description of the desired information
+    :raises: InvalidAttribute if there was a problem reading from stdin
+    :returns: the string that was read from stdin
+    """
+    try:
+        info = sys.stdin.read().strip()
+    except Exception as e:
+        err = _("Cannot get %(desc)s from standard input. Error: %(err)s")
+        raise exc.InvalidAttribute(err % {'desc': info_desc, 'err': e})
+    return info
+
+
+def _handle_json_or_file_arg(json_arg):
+    """Attempts to read JSON argument from file or string.
+
+    :param json_arg: May be a file name containing the JSON, or
+        a JSON string.
+    :returns: A list or dictionary parsed from JSON.
+    :raises: InvalidAttribute if the argument cannot be parsed.
+    """
+
+    if os.path.isfile(json_arg):
+        try:
+            with open(json_arg, 'r') as f:
+                json_arg = f.read().strip()
+        except Exception as e:
+            err = _("Cannot get JSON from file '%(file)s'. "
+                    "Error: %(err)s") % {'err': e, 'file': json_arg}
+            raise exc.InvalidAttribute(err)
+    try:
+        json_arg = json.loads(json_arg)
+    except ValueError as e:
+        err = (_("For JSON: '%(string)s', error: '%(err)s'") %
+               {'err': e, 'string': json_arg})
+        raise exc.InvalidAttribute(err)
+
+    return json_arg
 
 
 @cliutils.arg(
@@ -61,7 +107,7 @@ def do_node_show(cc, args):
         node = cc.node.get_by_instance_uuid(args.node, fields=fields)
     else:
         node = cc.node.get(args.node, fields=fields)
-    _print_node_show(node, fields=fields)
+    _print_node_show(node, fields=fields, json=args.json)
 
 
 @cliutils.arg(
@@ -98,6 +144,10 @@ def do_node_show(cc, args):
     metavar='<provision-state>',
     help="List nodes in specified provision state.")
 @cliutils.arg(
+    '--driver',
+    metavar='<driver>',
+    help="List nodes using specified driver.")
+@cliutils.arg(
     '--detail',
     dest='detail',
     action='store_true',
@@ -124,6 +174,9 @@ def do_node_list(cc, args):
     if args.provision_state is not None:
         params['provision_state'] = args.provision_state
 
+    if args.driver is not None:
+        params['driver'] = args.driver
+
     if args.detail:
         fields = res_fields.NODE_DETAILED_RESOURCE.fields
         field_labels = res_fields.NODE_DETAILED_RESOURCE.labels
@@ -146,7 +199,8 @@ def do_node_list(cc, args):
     nodes = cc.node.list(**params)
     cliutils.print_list(nodes, fields,
                         field_labels=field_labels,
-                        sortby_index=None)
+                        sortby_index=None,
+                        json_flag=args.json)
 
 
 @cliutils.arg(
@@ -205,7 +259,7 @@ def do_node_create(cc, args):
     node = cc.node.create(**fields)
 
     data = dict([(f, getattr(node, f, '')) for f in field_list])
-    cliutils.print_dict(data, wrap=72)
+    cliutils.print_dict(data, wrap=72, json_flag=args.json)
 
 
 @cliutils.arg('node',
@@ -213,10 +267,21 @@ def do_node_create(cc, args):
               nargs='+',
               help="Name or UUID of the node.")
 def do_node_delete(cc, args):
-    """Unregister node(s) from the Ironic service."""
+    """Unregister node(s) from the Ironic service.
+
+    :raises: ClientException, if error happens during the delete
+    """
+
+    failures = []
     for n in args.node:
-        cc.node.delete(n)
-        print(_('Deleted node %s') % n)
+        try:
+            cc.node.delete(n)
+            print(_('Deleted node %s') % n)
+        except exceptions.ClientException as e:
+            failures.append(_("Failed to delete node %(node)s: %(error)s")
+                            % {'node': n, 'error': e})
+    if failures:
+        raise exceptions.ClientException("\n".join(failures))
 
 
 @cliutils.arg('node', metavar='<node>', help="Name or UUID of the node.")
@@ -237,7 +302,7 @@ def do_node_update(cc, args):
     """Update information about a registered node."""
     patch = utils.args_array_to_patch(args.op, args.attributes[0])
     node = cc.node.update(args.node, patch)
-    _print_node_show(node)
+    _print_node_show(node, json=args.json)
 
 
 @cliutils.arg('node',
@@ -338,9 +403,11 @@ def do_node_port_list(cc, args):
                                           sort_field_labels)
 
     ports = cc.node.list_ports(args.node, **params)
+
     cliutils.print_list(ports, fields,
                         field_labels=field_labels,
-                        sortby_index=None)
+                        sortby_index=None,
+                        json_flag=args.json)
 
 
 @cliutils.arg('node', metavar='<node>', help="Name or UUID of the node.")
@@ -378,12 +445,36 @@ def do_node_set_power_state(cc, args):
 
 @cliutils.arg('node', metavar='<node>', help="Name or UUID of the node.")
 @cliutils.arg(
+    'target_raid_config',
+    metavar='<target-raid-config>',
+    help=("A file containing JSON data of the desired RAID configuration. "
+          "Use '-' to read the contents from standard input. "
+          "It also accepts the valid json string as input if "
+          "file/standard input are not used for providing input. "
+          "The input can be an empty dictionary too which "
+          "unsets the node.target_raid_config on the node."))
+def do_node_set_target_raid_config(cc, args):
+    """Set target RAID config on a node."""
+    target_raid_config = args.target_raid_config
+    if not target_raid_config:
+        raise exc.InvalidAttribute(
+            _("target RAID configuration not provided"))
+
+    if target_raid_config == '-':
+        target_raid_config = _get_from_stdin('target_raid_config')
+    target_raid_config = _handle_json_or_file_arg(target_raid_config)
+
+    cc.node.set_target_raid_config(args.node, target_raid_config)
+
+
+@cliutils.arg('node', metavar='<node>', help="Name or UUID of the node.")
+@cliutils.arg(
     'provision_state',
     metavar='<provision-state>',
     choices=['active', 'deleted', 'rebuild', 'inspect', 'provide',
-             'manage', 'abort'],
+             'manage', 'clean', 'abort'],
     help="Supported states: 'active', 'deleted', 'rebuild', "
-         "'inspect', 'provide', 'manage' or 'abort'")
+         "'inspect', 'provide', 'manage', 'clean' or 'abort'.")
 @cliutils.arg(
     '--config-drive',
     metavar='<config-drive>',
@@ -391,15 +482,39 @@ def do_node_set_power_state(cc, args):
     help=("A gzipped, base64-encoded configuration drive string OR the path "
           "to the configuration drive file OR the path to a directory "
           "containing the config drive files. In case it's a directory, a "
-          "config drive will be generated from it. This parameter is only "
-          "valid when setting provision state to 'active'."))
+          "config drive will be generated from it. This argument is only "
+          "valid when setting provision-state to 'active'."))
+@cliutils.arg(
+    '--clean-steps',
+    metavar='<clean-steps>',
+    default=None,
+    help=("The clean steps in JSON format. May be the path to a file "
+          "containing the clean steps; OR '-', with the clean steps being "
+          "read from standard input; OR a string. The value should be "
+          "a list of clean-step dictionaries; each dictionary should have "
+          "keys 'interface' and 'step', and optional key 'args'. "
+          "This argument must be specified (and is only valid) when "
+          "setting provision-state to 'clean'."))
 def do_node_set_provision_state(cc, args):
     """Initiate a provisioning state change for a node."""
     if args.config_drive and args.provision_state != 'active':
         raise exceptions.CommandError(_('--config-drive is only valid when '
                                         'setting provision state to "active"'))
+    elif args.clean_steps and args.provision_state != 'clean':
+        raise exceptions.CommandError(_('--clean-steps is only valid when '
+                                        'setting provision state to "clean"'))
+    elif args.provision_state == 'clean' and not args.clean_steps:
+        raise exceptions.CommandError(_('--clean-steps must be specified when '
+                                        'setting provision state to "clean"'))
+
+    clean_steps = args.clean_steps
+    if args.clean_steps == '-':
+        clean_steps = _get_from_stdin('clean steps')
+    if clean_steps:
+        clean_steps = _handle_json_or_file_arg(clean_steps)
     cc.node.set_provision_state(args.node, args.provision_state,
-                                configdrive=args.config_drive)
+                                configdrive=args.config_drive,
+                                cleansteps=clean_steps)
 
 
 @cliutils.arg('node', metavar='<node>', help="Name or UUID of the node.")
@@ -413,14 +528,15 @@ def do_node_validate(cc, args):
         obj_list.append(type('iface', (object,), data))
     field_labels = ['Interface', 'Result', 'Reason']
     fields = ['interface', 'result', 'reason']
-    cliutils.print_list(obj_list, fields, field_labels=field_labels)
+    cliutils.print_list(obj_list, fields, field_labels=field_labels,
+                        json_flag=args.json)
 
 
 @cliutils.arg('node', metavar='<node>', help="Name or UUID of the node.")
 def do_node_get_console(cc, args):
     """Get the connection information for a node's console, if enabled."""
     info = cc.node.get_console(args.node)
-    cliutils.print_dict(info, wrap=72)
+    cliutils.print_dict(info, wrap=72, json_flag=args.json)
 
 
 @cliutils.arg('node', metavar='<node>', help="Name or UUID of the node.")
@@ -455,7 +571,7 @@ def do_node_set_boot_device(cc, args):
 def do_node_get_boot_device(cc, args):
     """Get the current boot device for a node."""
     boot_device = cc.node.get_boot_device(args.node)
-    cliutils.print_dict(boot_device, wrap=72)
+    cliutils.print_dict(boot_device, wrap=72, json_flag=args.json)
 
 
 @cliutils.arg('node', metavar='<node>', help="Name or UUID of the node.")
@@ -464,14 +580,14 @@ def do_node_get_supported_boot_devices(cc, args):
     boot_devices = cc.node.get_supported_boot_devices(args.node)
     boot_device_list = boot_devices.get('supported_boot_devices', [])
     boot_devices['supported_boot_devices'] = ', '.join(boot_device_list)
-    cliutils.print_dict(boot_devices, wrap=72)
+    cliutils.print_dict(boot_devices, wrap=72, json_flag=args.json)
 
 
 @cliutils.arg('node', metavar='<node>', help="Name or UUID of the node.")
 def do_node_show_states(cc, args):
     """Show information about the node's states."""
     states = cc.node.states(args.node)
-    cliutils.print_dict(states.to_dict(), wrap=72)
+    cliutils.print_dict(states.to_dict(), wrap=72, json_flag=args.json)
 
 
 @cliutils.arg('node', metavar='<node>', help="Name or UUID of the node.")
@@ -488,4 +604,5 @@ def do_node_get_vendor_passthru_methods(cc, args):
     field_labels = res_fields.VENDOR_PASSTHRU_METHOD_RESOURCE.labels
     cliutils.print_list(data, fields,
                         field_labels=field_labels,
-                        sortby_index=None)
+                        sortby_index=None,
+                        json_flag=args.json)
