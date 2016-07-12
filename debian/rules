@@ -1,46 +1,20 @@
 #!/usr/bin/make -f
 
-PYTHONS:=$(shell pyversions -vr)
-PYTHON3S:=$(shell py3versions -vr)
-
 include /usr/share/openstack-pkg-tools/pkgos.make
-export OSLO_PACKAGE_VERSION=$(VERSION)
 
 %:
 	dh $@  --with python2,python3,sphinxdoc
 
-override_dh_install:
-	set -e ; for pyvers in $(PYTHONS); do \
-		python$$pyvers setup.py install --install-layout=deb \
-			--root $(CURDIR)/debian/python-ironicclient; \
-	done
-	set -e ; for pyvers in $(PYTHON3S); do \
-		python$$pyvers setup.py install --install-layout=deb \
-			--root $(CURDIR)/debian/python3-ironicclient; \
-	done
-	rm -f $(CURDIR)/debian/python*/usr/lib/python*/dist-packages/*.pth
-	mv $(CURDIR)/debian/python-ironicclient/usr/bin/ironic $(CURDIR)/debian/python-ironicclient/usr/bin/python2-ironic
-	mv $(CURDIR)/debian/python3-ironicclient/usr/bin/ironic $(CURDIR)/debian/python3-ironicclient/usr/bin/python3-ironic
+override_dh_auto_install:
+	pkgos-dh_auto_install
 
 override_dh_python3:
 	dh_python3 --shebang=/usr/bin/python3
 
 override_dh_auto_test:
 ifeq (,$(findstring nocheck, $(DEB_BUILD_OPTIONS)))
-	echo "===> Running tests"
-	set -e ; for i in $(PYTHONS) ; do \
-		PYMAJOR=`echo $$i | cut -d'.' -f1` ; \
-		echo "===> Testing with python$$i (python$$PYMAJOR)" ; \
-		rm -rf .testrepository ; \
-		testr-python$$PYMAJOR init ; \
-		TEMP_REZ=`mktemp -t` ; \
-		PYTHONPATH=$(CURDIR) PYTHON=python$$i testr-python$$PYMAJOR run --subunit | tee $$TEMP_REZ | subunit2pyunit ; \
-		cat $$TEMP_REZ | subunit-filter -s --no-passthrough | subunit-stats ; \
-		rm -f $$TEMP_REZ ; \
-		testr-python$$PYMAJOR slowest ; \
-	done
+	pkgos-dh_auto_install
 endif
-#		PYTHONPATH=$(CURDIR) PYTHON=python$$i testr-python$$PYMAJOR run --subunit 'ironicclient\.tests\.unit\.(?!(.*test_utils\.CommonParamsForListTest.*))' | tee $$TEMP_REZ | subunit2pyunit ; \
 
 override_dh_sphinxdoc:
 ifeq (,$(findstring nodocs, $(DEB_BUILD_OPTIONS)))
