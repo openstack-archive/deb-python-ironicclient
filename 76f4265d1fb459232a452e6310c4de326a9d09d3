@@ -1,0 +1,11 @@
+Code-Review+1: Clint Adams <clint@gcfm.net>
+Code-Review+2: Dmitry Tantsur <divius.inside@gmail.com>
+Code-Review+1: Brandon Palm <bapalm@us.ibm.com>
+Code-Review+2: John L. Villalovos <openstack.org@sodarock.com>
+Workflow+1: John L. Villalovos <openstack.org@sodarock.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Mon, 07 Mar 2016 22:54:27 +0000
+Reviewed-on: https://review.openstack.org/288217
+Project: openstack/deb-python-ironicclient
+Branch: refs/heads/master

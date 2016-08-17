@@ -1,0 +1,10 @@
+Code-Review+2: Jay Faulkner <jay@jvf.cc>
+Code-Review+2: Haomeng,Wang <wanghaomeng@gmail.com>
+Code-Review+2: Dmitry Tantsur <divius.inside@gmail.com>
+Workflow+1: Dmitry Tantsur <divius.inside@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Wed, 22 Jun 2016 14:17:16 +0000
+Reviewed-on: https://review.openstack.org/332489
+Project: openstack/deb-python-ironicclient
+Branch: refs/heads/master

@@ -1,0 +1,9 @@
+Code-Review+2: Dmitry Tantsur <divius.inside@gmail.com>
+Code-Review+2: John L. Villalovos <openstack.org@sodarock.com>
+Workflow+1: John L. Villalovos <openstack.org@sodarock.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Sat, 02 Jul 2016 00:09:15 +0000
+Reviewed-on: https://review.openstack.org/334735
+Project: openstack/deb-python-ironicclient
+Branch: refs/heads/master

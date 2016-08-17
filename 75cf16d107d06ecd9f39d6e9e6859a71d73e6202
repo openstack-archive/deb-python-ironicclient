@@ -1,0 +1,13 @@
+Code-Review+1: Alexander Bashmakov <alexander.bashmakov@intel.com>
+Code-Review+1: Kyrylo Romanenko <kromanenko@mirantis.com>
+Code-Review+1: Aline Bousquet <albousque@gmail.com>
+Code-Review+1: Miles Gould <mgould@redhat.com>
+Code-Review+2: Julia Kreger <juliaashleykreger@gmail.com>
+Code-Review+2: Jay Faulkner <jay@jvf.cc>
+Workflow+1: Jay Faulkner <jay@jvf.cc>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Fri, 29 Jul 2016 22:49:49 +0000
+Reviewed-on: https://review.openstack.org/341552
+Project: openstack/deb-python-ironicclient
+Branch: refs/heads/master

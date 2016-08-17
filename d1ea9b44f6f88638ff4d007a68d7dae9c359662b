@@ -1,0 +1,10 @@
+Code-Review+2: Chris Krelle <nobodycam@gmail.com>
+Code-Review+2: Julia Kreger <juliaashleykreger@gmail.com>
+Code-Review+2: Jim Rollenhagen <jim@jimrollenhagen.com>
+Workflow+1: Jim Rollenhagen <jim@jimrollenhagen.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Sat, 16 Jul 2016 00:59:50 +0000
+Reviewed-on: https://review.openstack.org/206144
+Project: openstack/deb-python-ironicclient
+Branch: refs/heads/master

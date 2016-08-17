@@ -1,0 +1,12 @@
+Code-Review+2: Lucas Alvares Gomes <lucasagomes@gmail.com>
+Code-Review+1: Vasyl Saienko <vsaienko@mirantis.com>
+Code-Review+1: Anton Arefiev <aarefiev@mirantis.com>
+Code-Review+1: Jay Faulkner <jay@jvf.cc>
+Code-Review+2: John L. Villalovos <openstack.org@sodarock.com>
+Workflow+1: John L. Villalovos <openstack.org@sodarock.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Tue, 12 Apr 2016 17:40:47 +0000
+Reviewed-on: https://review.openstack.org/292552
+Project: openstack/deb-python-ironicclient
+Branch: refs/heads/master

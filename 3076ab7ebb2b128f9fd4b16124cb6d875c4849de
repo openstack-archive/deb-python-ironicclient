@@ -1,0 +1,10 @@
+Code-Review+2: Ruby Loo <ruby.loo@intel.com>
+Code-Review+1: Philippe Godin <godp1301@gmail.com>
+Code-Review+2: Vladyslav Drok <vdrok@mirantis.com>
+Workflow+1: Vladyslav Drok <vdrok@mirantis.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Thu, 26 May 2016 14:00:58 +0000
+Reviewed-on: https://review.openstack.org/307904
+Project: openstack/deb-python-ironicclient
+Branch: refs/heads/master

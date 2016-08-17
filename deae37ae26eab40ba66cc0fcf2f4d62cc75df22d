@@ -1,0 +1,11 @@
+Code-Review+1: Michael Glaser <mg6596@att.com>
+Code-Review+1: venkatamahesh <Venkata.Kotha@infinite.com>
+Code-Review+1: Philippe Godin <godp1301@gmail.com>
+Code-Review+2: Dmitry Tantsur <divius.inside@gmail.com>
+Workflow+1: Dmitry Tantsur <divius.inside@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Tue, 10 May 2016 10:34:39 +0000
+Reviewed-on: https://review.openstack.org/310017
+Project: openstack/deb-python-ironicclient
+Branch: refs/heads/master
