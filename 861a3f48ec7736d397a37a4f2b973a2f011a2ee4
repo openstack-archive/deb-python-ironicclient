@@ -1,0 +1,9 @@
+Code-Review+1: Clint Adams <clint@gcfm.net>
+Code-Review+2: Jim Rollenhagen <jim@jimrollenhagen.com>
+Workflow+1: Jim Rollenhagen <jim@jimrollenhagen.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Thu, 24 Mar 2016 22:30:33 +0000
+Reviewed-on: https://review.openstack.org/297153
+Project: openstack/deb-python-ironicclient
+Branch: refs/heads/stable/mitaka

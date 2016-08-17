@@ -1,0 +1,15 @@
+Code-Review+1: Om Kumar <om.kumar@hp.com>
+Code-Review+1: Mathieu Mitchell <mmitchell@iweb.com>
+Code-Review+2: Dmitry Tantsur <divius.inside@gmail.com>
+Code-Review+1: Chris Krelle <nobodycam@gmail.com>
+Code-Review+1: Jay Faulkner <jay@jvf.cc>
+Code-Review+1: Haomeng,Wang <wanghaomeng@gmail.com>
+Code-Review+1: Sivaramakrishna Garimella <sivaramakrishna_g@yahoo.in>
+Code-Review+2: Jim Rollenhagen <jim@jimrollenhagen.com>
+Workflow+1: Jim Rollenhagen <jim@jimrollenhagen.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Fri, 13 May 2016 09:35:24 +0000
+Reviewed-on: https://review.openstack.org/315623
+Project: openstack/deb-python-ironicclient
+Branch: refs/heads/stable/mitaka
