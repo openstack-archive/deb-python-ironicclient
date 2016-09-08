@@ -1,5 +1,5 @@
 [gerrit]
 host=review.openstack.org
 port=29418
-project=openstack/python-ironicclient.git
-defaultbranch=stable/mitaka
+project=openstack/deb-python-ironicclient.git
+defaultbranch=debian/newton
