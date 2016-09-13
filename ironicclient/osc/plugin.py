@@ -16,14 +16,14 @@
 
 import logging
 
-from openstackclient.common import utils
+from osc_lib import utils
 
 LOG = logging.getLogger(__name__)
 
 DEFAULT_BAREMETAL_API_VERSION = '1.6'
 API_VERSION_OPTION = 'os_baremetal_api_version'
 API_NAME = 'baremetal'
-LAST_KNOWN_API_VERSION = 14
+LAST_KNOWN_API_VERSION = 20
 API_VERSIONS = {
     '1.%d' % i: 'ironicclient.v1.client.Client'
     for i in range(1, LAST_KNOWN_API_VERSION + 1)

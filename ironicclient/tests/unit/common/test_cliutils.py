@@ -12,6 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import json
 import sys
 
 import fixtures
@@ -434,7 +435,6 @@ class _FakeResult(object):
     def __init__(self, name, value):
         self.name = name
         self.value = value
-        self._info = {"name": name, "value": value}
 
 
 class PrintResultTestCase(test_base.BaseTestCase):
@@ -597,12 +597,9 @@ class PrintResultStringTestCase(test_base.BaseTestCase):
         out = sys.stdout.getvalue()
         sys.stdout.close()
         sys.stdout = orig
-        expected = ['''\
-[{"name": "k1", "value": 1}]
-''', '''\
-[{"value": 1, "name": "k1"}]
-''']
-        self.assertIn(out, expected)
+
+        expected = [{"name": "k1", "value": 1}]
+        self.assertEqual(expected, json.loads(out))
 
     def test_print_dict_string(self):
         orig = sys.stdout
@@ -628,12 +625,8 @@ class PrintResultStringTestCase(test_base.BaseTestCase):
         out = sys.stdout.getvalue()
         sys.stdout.close()
         sys.stdout = orig
-        expected = ['''\
-{"K": "k", "Key": "Value"}
-''', '''\
-{"Key": "Value", "K": "k"}
-''']
-        self.assertIn(out, expected)
+        expected = {"K": "k", "Key": "Value"}
+        self.assertEqual(expected, json.loads(out))
 
     def test_print_dict_string_custom_headers(self):
         orig = sys.stdout

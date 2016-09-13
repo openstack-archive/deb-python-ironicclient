@@ -26,6 +26,7 @@ import textwrap
 import time
 
 from keystoneauth1 import adapter
+from keystoneauth1 import exceptions as kexc
 from oslo_utils import strutils
 import requests
 import six
@@ -171,7 +172,7 @@ class VersionNegotiationMixin(object):
 
 
 _RETRY_EXCEPTIONS = (exc.Conflict, exc.ServiceUnavailable,
-                     exc.ConnectionRefused)
+                     exc.ConnectionRefused, kexc.RetriableConnectionFailure)
 
 
 def with_retries(func):
@@ -414,7 +415,7 @@ class HTTPClient(VersionNegotiationMixin):
 
 
 class VerifiedHTTPSConnection(six.moves.http_client.HTTPSConnection):
-    """httplib-compatibile connection using client-side SSL authentication
+    """httplib-compatible connection using client-side SSL authentication
 
     :see http://code.activestate.com/recipes/
             577548-https-httplib-client-connection-with-certificate-v/

@@ -14,9 +14,6 @@
 #    under the License.
 
 import argparse
-import json
-import os
-import sys
 
 from ironicclient.common.apiclient import exceptions
 from ironicclient.common import cliutils
@@ -26,6 +23,35 @@ from ironicclient import exc
 from ironicclient.v1 import resource_fields as res_fields
 
 
+# Polling intervals in seconds.
+_LONG_ACTION_POLL_INTERVAL = 10
+_SHORT_ACTION_POLL_INTERVAL = 2
+# This dict acts as both list of possible provision actions and arguments for
+# wait_for_provision_state invocation.
+PROVISION_ACTIONS = {
+    'active': {'expected_state': 'active',
+               'poll_interval': _LONG_ACTION_POLL_INTERVAL},
+    'deleted': {'expected_state': 'available',
+                'poll_interval': _LONG_ACTION_POLL_INTERVAL},
+    'rebuild': {'expected_state': 'active',
+                'poll_interval': _LONG_ACTION_POLL_INTERVAL},
+    'inspect': {'expected_state': 'manageable',
+                # This is suboptimal for in-band inspection, but it's probably
+                # not worth making people wait 10 seconds for OOB inspection
+                'poll_interval': _SHORT_ACTION_POLL_INTERVAL},
+    'provide': {'expected_state': 'available',
+                # This assumes cleaning is in place
+                'poll_interval': _LONG_ACTION_POLL_INTERVAL},
+    'manage': {'expected_state': 'manageable',
+               'poll_interval': _SHORT_ACTION_POLL_INTERVAL},
+    'clean': {'expected_state': 'manageable',
+              'poll_interval': _LONG_ACTION_POLL_INTERVAL},
+    'adopt': {'expected_state': 'active',
+              'poll_interval': _SHORT_ACTION_POLL_INTERVAL},
+    'abort': None,  # no support for --wait in abort
+}
+
+
 def _print_node_show(node, fields=None, json=False):
     if fields is None:
         fields = res_fields.NODE_DETAILED_RESOURCE.fields
@@ -33,48 +59,6 @@ def _print_node_show(node, fields=None, json=False):
     data = dict(
         [(f, getattr(node, f, '')) for f in fields])
     cliutils.print_dict(data, wrap=72, json_flag=json)
-
-
-def _get_from_stdin(info_desc):
-    """Read information from stdin.
-
-    :param info_desc: A string description of the desired information
-    :raises: InvalidAttribute if there was a problem reading from stdin
-    :returns: the string that was read from stdin
-    """
-    try:
-        info = sys.stdin.read().strip()
-    except Exception as e:
-        err = _("Cannot get %(desc)s from standard input. Error: %(err)s")
-        raise exc.InvalidAttribute(err % {'desc': info_desc, 'err': e})
-    return info
-
-
-def _handle_json_or_file_arg(json_arg):
-    """Attempts to read JSON argument from file or string.
-
-    :param json_arg: May be a file name containing the JSON, or
-        a JSON string.
-    :returns: A list or dictionary parsed from JSON.
-    :raises: InvalidAttribute if the argument cannot be parsed.
-    """
-
-    if os.path.isfile(json_arg):
-        try:
-            with open(json_arg, 'r') as f:
-                json_arg = f.read().strip()
-        except Exception as e:
-            err = _("Cannot get JSON from file '%(file)s'. "
-                    "Error: %(err)s") % {'err': e, 'file': json_arg}
-            raise exc.InvalidAttribute(err)
-    try:
-        json_arg = json.loads(json_arg)
-    except ValueError as e:
-        err = (_("For JSON: '%(string)s', error: '%(err)s'") %
-               {'err': e, 'string': json_arg})
-        raise exc.InvalidAttribute(err)
-
-    return json_arg
 
 
 @cliutils.arg(
@@ -162,6 +146,11 @@ def do_node_show(cc, args):
     default=[],
     help="One or more node fields. Only these fields will be fetched from "
          "the server. Can not be used when '--detail' is specified.")
+@cliutils.arg(
+    '--resource-class',
+    dest='resource_class',
+    metavar='<resource class>',
+    help="List nodes using specified resource class.")
 def do_node_list(cc, args):
     """List the nodes which are registered with the Ironic service."""
     params = {}
@@ -176,6 +165,9 @@ def do_node_list(cc, args):
 
     if args.driver is not None:
         params['driver'] = args.driver
+
+    if args.resource_class is not None:
+        params['resource_class'] = args.resource_class
 
     if args.detail:
         fields = res_fields.NODE_DETAILED_RESOURCE.fields
@@ -247,10 +239,21 @@ def do_node_list(cc, args):
     '-n', '--name',
     metavar='<name>',
     help="Unique name for the node.")
+@cliutils.arg(
+    '--network-interface',
+    metavar='<network_interface>',
+    help='Network interface used for switching node to cleaning/provisioning '
+         'networks.')
+@cliutils.arg(
+    '--resource-class',
+    metavar='<resource_class>',
+    help='Resource class for classifying or grouping nodes. Used, for '
+         'example, to classify nodes in Nova\'s placement engine.')
 def do_node_create(cc, args):
     """Register a new node with the Ironic service."""
     field_list = ['chassis_uuid', 'driver', 'driver_info',
-                  'properties', 'extra', 'uuid', 'name']
+                  'properties', 'extra', 'uuid', 'name',
+                  'network_interface', 'resource_class']
     fields = dict((k, v) for (k, v) in vars(args).items()
                   if k in field_list and not (v is None))
     fields = utils.args_array_to_dict(fields, 'driver_info')
@@ -269,7 +272,7 @@ def do_node_create(cc, args):
 def do_node_delete(cc, args):
     """Unregister node(s) from the Ironic service.
 
-    :raises: ClientException, if error happens during the delete
+    Returns errors for any nodes that could not be unregistered.
     """
 
     failures = []
@@ -328,13 +331,7 @@ def do_node_update(cc, args):
               help=argparse.SUPPRESS)
 def do_node_vendor_passthru(cc, args):
     """Call a vendor-passthru extension for a node."""
-    arguments = utils.args_array_to_dict({'args': args.arguments[0]},
-                                         'args')['args']
-
-    # If there were no arguments for the method, arguments will still
-    # be an empty list. So make it an empty dict.
-    if not arguments:
-        arguments = {}
+    arguments = utils.key_value_pairs_to_dict(args.arguments[0])
 
     resp = cc.node.vendor_passthru(args.node, args.method,
                                    http_method=args.http_method,
@@ -461,8 +458,8 @@ def do_node_set_target_raid_config(cc, args):
             _("target RAID configuration not provided"))
 
     if target_raid_config == '-':
-        target_raid_config = _get_from_stdin('target_raid_config')
-    target_raid_config = _handle_json_or_file_arg(target_raid_config)
+        target_raid_config = utils.get_from_stdin('target_raid_config')
+    target_raid_config = utils.handle_json_or_file_arg(target_raid_config)
 
     cc.node.set_target_raid_config(args.node, target_raid_config)
 
@@ -471,10 +468,9 @@ def do_node_set_target_raid_config(cc, args):
 @cliutils.arg(
     'provision_state',
     metavar='<provision-state>',
-    choices=['active', 'deleted', 'rebuild', 'inspect', 'provide',
-             'manage', 'clean', 'abort'],
-    help="Supported states: 'active', 'deleted', 'rebuild', "
-         "'inspect', 'provide', 'manage', 'clean' or 'abort'.")
+    choices=list(PROVISION_ACTIONS),
+    help="Supported states: %s." % ', '.join("'%s'" % state
+                                             for state in PROVISION_ACTIONS))
 @cliutils.arg(
     '--config-drive',
     metavar='<config-drive>',
@@ -495,6 +491,18 @@ def do_node_set_target_raid_config(cc, args):
           "keys 'interface' and 'step', and optional key 'args'. "
           "This argument must be specified (and is only valid) when "
           "setting provision-state to 'clean'."))
+@cliutils.arg(
+    '--wait',
+    type=int,
+    dest='wait_timeout',
+    default=None,
+    const=0,
+    nargs='?',
+    help=("Wait for a node to reach the expected state. Not supported "
+          "for 'abort'. Optionally takes a timeout in seconds. "
+          "The default value is 0, meaning no timeout. "
+          "Fails if the node reaches an unexpected stable state, a failure "
+          "state or a state with last_error set."))
 def do_node_set_provision_state(cc, args):
     """Initiate a provisioning state change for a node."""
     if args.config_drive and args.provision_state != 'active':
@@ -507,14 +515,26 @@ def do_node_set_provision_state(cc, args):
         raise exceptions.CommandError(_('--clean-steps must be specified when '
                                         'setting provision state to "clean"'))
 
+    if args.wait_timeout is not None:
+        wait_args = PROVISION_ACTIONS.get(args.provision_state)
+        if wait_args is None:
+            raise exceptions.CommandError(
+                _("--wait is not supported for provision state '%s'")
+                % args.provision_state)
+
     clean_steps = args.clean_steps
     if args.clean_steps == '-':
-        clean_steps = _get_from_stdin('clean steps')
+        clean_steps = utils.get_from_stdin('clean steps')
     if clean_steps:
-        clean_steps = _handle_json_or_file_arg(clean_steps)
+        clean_steps = utils.handle_json_or_file_arg(clean_steps)
     cc.node.set_provision_state(args.node, args.provision_state,
                                 configdrive=args.config_drive,
                                 cleansteps=clean_steps)
+    if args.wait_timeout is not None:
+        print(_('Waiting for provision state %(state)s on node %(node)s') %
+              {'state': wait_args['expected_state'], 'node': args.node})
+        cc.node.wait_for_provision_state(args.node, timeout=args.wait_timeout,
+                                         **wait_args)
 
 
 @cliutils.arg('node', metavar='<node>', help="Name or UUID of the node.")

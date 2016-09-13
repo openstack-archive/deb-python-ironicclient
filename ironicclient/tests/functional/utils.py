@@ -12,8 +12,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import uuid
-
 import six
 
 
@@ -29,7 +27,7 @@ def get_dict_from_output(output):
 
 
 def get_object(object_list, object_value):
-    """"Get Ironic object by value from list of Ironic objects.
+    """Get Ironic object by value from list of Ironic objects.
 
     :param object_list: the output of the cmd
     :param object_value: value to get
@@ -37,12 +35,3 @@ def get_object(object_list, object_value):
     for obj in object_list:
         if object_value in obj.values():
             return obj
-
-
-def generate_name(prefix='test'):
-    """Generate name for objects.
-
-    :param prefix: prefix of the generated name
-    """
-    suffix = uuid.uuid4().hex
-    return "{0}-{1}".format(prefix, suffix)

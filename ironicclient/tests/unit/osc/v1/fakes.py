@@ -15,9 +15,18 @@
 #
 
 import mock
-from openstackclient.tests import utils
+from osc_lib.tests import utils
 
 from ironicclient.tests.unit.osc import fakes
+
+baremetal_chassis_uuid = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+baremetal_chassis_description = 'chassis description'
+baremetal_chassis_extra = {}
+BAREMETAL_CHASSIS = {
+    'uuid': baremetal_chassis_uuid,
+    'description': baremetal_chassis_description,
+    'extra': baremetal_chassis_extra,
+}
 
 baremetal_uuid = 'xxx-xxxxxx-xxxx'
 baremetal_name = 'fake name'
@@ -35,6 +44,33 @@ BAREMETAL = {
     'maintenance': baremetal_maintenance,
     'links': []
 }
+
+baremetal_port_uuid = 'zzz-zzzzzz-zzzz'
+baremetal_port_address = 'AA:BB:CC:DD:EE:FF'
+baremetal_port_extra = {'key1': 'value1',
+                        'key2': 'value2'}
+
+BAREMETAL_PORT = {
+    'uuid': baremetal_port_uuid,
+    'address': baremetal_port_address,
+    'extra': baremetal_port_extra,
+    'node_uuid': baremetal_uuid,
+}
+
+baremetal_driver_hosts = ['fake-host1', 'fake-host2']
+baremetal_driver_name = 'fakedrivername'
+
+BAREMETAL_DRIVER = {
+    'hosts': baremetal_driver_hosts,
+    'name': baremetal_driver_name,
+}
+
+baremetal_driver_passthru_method = 'lookup'
+
+BAREMETAL_DRIVER_PASSTHRU = {"lookup": {"attach": "false",
+                                        "http_methods": ["POST"],
+                                        "description": "",
+                                        "async": "false"}}
 
 
 class TestBaremetal(utils.TestCommand):

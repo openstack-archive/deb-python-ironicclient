@@ -55,7 +55,7 @@ def validate_args(fn, *args, **kwargs):
     MissingArgs: Missing argument(s): b, d
 
     :param fn: the function to check
-    :param arg: the positional arguments supplied
+    :param args: the positional arguments supplied
     :param kwargs: the keyword arguments supplied
     """
     argspec = inspect.getargspec(fn)
@@ -153,9 +153,21 @@ def print_list(objs, fields, formatters=None, sortby_index=0,
         fields.
     :param json_flag: print the list as JSON instead of table
     """
-    if json_flag:
-        print(json.dumps([o._info for o in objs]))
-        return
+    def _get_name_and_data(field):
+        if field in formatters:
+            # The value of the field has to be modified.
+            # For example, it can be used to add extra fields.
+            return (field, formatters[field](o))
+
+        field_name = field.replace(' ', '_')
+        if field not in mixed_case_fields:
+            field_name = field.lower()
+        if isinstance(o, dict):
+            data = o.get(field_name, '')
+        else:
+            data = getattr(o, field_name, '')
+        return (field_name, data)
+
     formatters = formatters or {}
     mixed_case_fields = mixed_case_fields or []
     field_labels = field_labels or fields
@@ -171,24 +183,20 @@ def print_list(objs, fields, formatters=None, sortby_index=0,
     pt = prettytable.PrettyTable(field_labels)
     pt.align = 'l'
 
+    json_array = []
+
     for o in objs:
         row = []
         for field in fields:
-            if field in formatters:
-                row.append(formatters[field](o))
-            else:
-                if field in mixed_case_fields:
-                    field_name = field.replace(' ', '_')
-                else:
-                    field_name = field.lower().replace(' ', '_')
-                if isinstance(o, dict):
-                    data = o.get(field_name, '')
-                else:
-                    data = getattr(o, field_name, '')
-                row.append(data)
-        pt.add_row(row)
+            row.append(_get_name_and_data(field))
+        if json_flag:
+            json_array.append(dict(row))
+        else:
+            pt.add_row([r[1] for r in row])
 
-    if six.PY3:
+    if json_flag:
+        print(json.dumps(json_array, indent=4, separators=(',', ': ')))
+    elif six.PY3:
         print(encodeutils.safe_encode(pt.get_string(**kwargs)).decode())
     else:
         print(encodeutils.safe_encode(pt.get_string(**kwargs)))
@@ -205,7 +213,7 @@ def print_dict(dct, dict_property="Property", wrap=0, dict_value='Value',
     :param json_flag: print `dict` as JSON instead of table
     """
     if json_flag:
-        print(json.dumps(dct))
+        print(json.dumps(dct, indent=4, separators=(',', ': ')))
         return
     pt = prettytable.PrettyTable([dict_property, dict_value])
     pt.align = 'l'

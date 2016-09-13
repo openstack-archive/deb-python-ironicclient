@@ -1,0 +1,5 @@
+---
+features:
+  - The ``ironic port-show``, ``ironic port-list --detail``, and ``ironic
+    node-port-list --detail`` commands now include the ``internal_info`` field
+    in the output.

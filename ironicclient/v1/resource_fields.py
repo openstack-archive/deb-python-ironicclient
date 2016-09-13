@@ -48,6 +48,7 @@ class Resource(object):
         'inspection_started_at': 'Inspection Started At',
         'instance_info': 'Instance Info',
         'instance_uuid': 'Instance UUID',
+        'internal_info': 'Internal Info',
         'last_error': 'Last Error',
         'maintenance': 'Maintenance',
         'maintenance_reason': 'Maintenance Reason',
@@ -59,11 +60,15 @@ class Resource(object):
         'provision_updated_at': 'Provision Updated At',
         'raid_config': 'Current RAID configuration',
         'reservation': 'Reservation',
+        'resource_class': 'Resource Class',
         'target_power_state': 'Target Power State',
         'target_provision_state': 'Target Provision State',
         'target_raid_config': 'Target RAID configuration',
         'updated_at': 'Updated At',
         'uuid': 'UUID',
+        'local_link_connection': 'Local Link Connection',
+        'pxe_enabled': 'PXE boot enabled',
+        'network_interface': 'Network Interface',
     }
 
     def __init__(self, field_ids, sort_excluded=None):
@@ -143,6 +148,7 @@ NODE_DETAILED_RESOURCE = Resource(
      'provision_updated_at',
      'raid_config',
      'reservation',
+     'resource_class',
      'target_power_state',
      'target_provision_state',
      'target_raid_config',
@@ -151,6 +157,7 @@ NODE_DETAILED_RESOURCE = Resource(
      'inspection_started_at',
      'uuid',
      'name',
+     'network_interface',
      ],
     sort_excluded=[
         # The server cannot sort on "chassis_uuid" because it isn't a column in
@@ -189,7 +196,10 @@ PORT_DETAILED_RESOURCE = Resource(
      'created_at',
      'extra',
      'node_uuid',
+     'local_link_connection',
+     'pxe_enabled',
      'updated_at',
+     'internal_info',
      ],
     sort_excluded=[
         'extra',
@@ -197,6 +207,7 @@ PORT_DETAILED_RESOURCE = Resource(
         # the "ports" database table. "node_id" is stored, but it is internal
         # to ironic. See bug #1443003 for more details.
         'node_uuid',
+        'internal_info',
     ])
 PORT_RESOURCE = Resource(
     ['uuid',

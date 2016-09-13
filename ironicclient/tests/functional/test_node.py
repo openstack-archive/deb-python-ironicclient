@@ -12,6 +12,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from tempest.lib.common.utils import data_utils
+
 from ironicclient.tests.functional import base
 import ironicclient.tests.functional.utils as utils
 
@@ -45,6 +47,19 @@ class NodeSanityTestIronicClient(base.FunctionalTestBase):
         node_show = self.show_node(self.node['uuid'])
         self.assertEqual(self.node['uuid'], node_show['uuid'])
 
+    def test_node_show_field(self):
+        """Test steps:
+
+        1) create node
+        2) show node with fields instance_uuid, driver, name, uuid
+        3) check that only fields instance_uuid, driver, name,
+        uuid are the output fields
+        """
+        fields = ['instance_uuid', 'driver', 'name', 'uuid']
+        node_show = self.show_node(self.node['uuid'],
+                                   params='--fields %s' % ' '.join(fields))
+        self.assertTableHeaders(fields, node_show.keys())
+
     def test_node_delete(self):
         """Test steps:
 
@@ -65,7 +80,7 @@ class NodeSanityTestIronicClient(base.FunctionalTestBase):
         2) update node name
         3) check that node name has been successfully updated
         """
-        node_name = utils.generate_name('test')
+        node_name = data_utils.rand_name(prefix='test')
         updated_node = self.update_node(self.node['uuid'],
                                         'add name={0}'.format(node_name))
         self.assertEqual(node_name, updated_node['name'])
@@ -130,7 +145,7 @@ class NodeSanityTestIronicClient(base.FunctionalTestBase):
 
         1) create node
         2) check that power state is None
-        3) set power state to On
+        3) set power state to 'off'
         4) check that power state has been changed successfully
         """
         node_show = self.show_node(self.node['uuid'])
@@ -178,3 +193,18 @@ class NodeSanityTestIronicClient(base.FunctionalTestBase):
         node_show = self.show_node(self.node['uuid'])
         show_node_states = self.show_node_states(self.node['uuid'])
         self.assertNodeStates(node_show, show_node_states)
+
+    def test_node_list(self):
+        """Test steps:
+
+            1) create node in setup and one more node explicitly
+            2) check that both nodes are in list
+        """
+        other_node = self.create_node()
+        node_list = self.list_nodes()
+        uuids = [x['UUID'] for x in node_list]
+        names = [x['Name'] for x in node_list]
+        self.assertIn(self.node['uuid'], uuids)
+        self.assertIn(other_node['uuid'], uuids)
+        self.assertIn(self.node['name'], names)
+        self.assertIn(other_node['name'], names)

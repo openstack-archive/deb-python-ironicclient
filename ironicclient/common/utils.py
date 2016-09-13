@@ -23,6 +23,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 
 from oslo_utils import importutils
@@ -40,12 +41,12 @@ class HelpFormatter(argparse.HelpFormatter):
 
 
 def define_command(subparsers, command, callback, cmd_mapper):
-    '''Define a command in the subparsers collection.
+    """Define a command in the subparsers collection.
 
     :param subparsers: subparsers collection where the command will go
     :param command: command name
     :param callback: function that will be used to process the command
-    '''
+    """
     desc = callback.__doc__ or ''
     help = desc.strip().split('\n')[0]
     arguments = getattr(callback, 'arguments', [])
@@ -100,11 +101,33 @@ def split_and_deserialize(string):
     return (key, value)
 
 
+def key_value_pairs_to_dict(key_value_pairs):
+    """Convert a list of key-value pairs to a dictionary.
+
+    :param key_value_pairs: a list of strings, each string is in the form
+                            <key>=<value>
+    :returns: a dictionary, possibly empty
+    """
+    if key_value_pairs:
+        return dict(split_and_deserialize(v) for v in key_value_pairs)
+    return {}
+
+
 def args_array_to_dict(kwargs, key_to_convert):
+    """Convert the value in a dictionary entry to a dictionary.
+
+    From the kwargs dictionary, converts the value of the key_to_convert
+    entry from a list of key-value pairs to a dictionary.
+
+    :param kwargs: a dictionary
+    :param key_to_convert: the key (in kwargs), whose value is expected to
+        be a list of key=value strings. This value will be converted to a
+        dictionary.
+    :returns: kwargs, the (modified) dictionary
+    """
     values_to_convert = kwargs.get(key_to_convert)
     if values_to_convert:
-        kwargs[key_to_convert] = dict(split_and_deserialize(v)
-                                      for v in values_to_convert)
+        kwargs[key_to_convert] = key_value_pairs_to_dict(values_to_convert)
     return kwargs
 
 
@@ -293,7 +316,7 @@ def check_for_invalid_fields(fields, valid_fields):
 
     :param fields: A list of fields specified by the user.
     :param valid_fields: A list of valid fields.
-    raises: CommandError: If invalid fields were specified by the user.
+    :raises CommandError: If invalid fields were specified by the user.
     """
     if not fields:
         return
@@ -304,3 +327,45 @@ def check_for_invalid_fields(fields, valid_fields):
             _('Invalid field(s) requested: %(invalid)s. Valid fields '
               'are: %(valid)s.') % {'invalid': ', '.join(invalid_fields),
                                     'valid': ', '.join(valid_fields)})
+
+
+def get_from_stdin(info_desc):
+    """Read information from stdin.
+
+    :param info_desc: A string description of the desired information
+    :raises: InvalidAttribute if there was a problem reading from stdin
+    :returns: the string that was read from stdin
+    """
+    try:
+        info = sys.stdin.read().strip()
+    except Exception as e:
+        err = _("Cannot get %(desc)s from standard input. Error: %(err)s")
+        raise exc.InvalidAttribute(err % {'desc': info_desc, 'err': e})
+    return info
+
+
+def handle_json_or_file_arg(json_arg):
+    """Attempts to read JSON argument from file or string.
+
+    :param json_arg: May be a file name containing the JSON, or
+        a JSON string.
+    :returns: A list or dictionary parsed from JSON.
+    :raises: InvalidAttribute if the argument cannot be parsed.
+    """
+
+    if os.path.isfile(json_arg):
+        try:
+            with open(json_arg, 'r') as f:
+                json_arg = f.read().strip()
+        except Exception as e:
+            err = _("Cannot get JSON from file '%(file)s'. "
+                    "Error: %(err)s") % {'err': e, 'file': json_arg}
+            raise exc.InvalidAttribute(err)
+    try:
+        json_arg = json.loads(json_arg)
+    except ValueError as e:
+        err = (_("For JSON: '%(string)s', error: '%(err)s'") %
+               {'err': e, 'string': json_arg})
+        raise exc.InvalidAttribute(err)
+
+    return json_arg
