@@ -7,6 +7,7 @@ python-ironicclient (1.7.0-1) experimental; urgency=medium
 
   [ Thomas Goirand ]
   * Using OpenStack's Gerrit as VCS URLs.
+  * Using pkgos-dh_auto_test
 
  -- Thomas Goirand <zigo@debian.org>  Tue, 13 Sep 2016 10:30:03 +0200
 

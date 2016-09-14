@@ -13,7 +13,7 @@ override_dh_python3:
 
 override_dh_auto_test:
 ifeq (,$(findstring nocheck, $(DEB_BUILD_OPTIONS)))
-	ostestr
+	pkgos-dh_auto_test
 endif
 
 override_dh_sphinxdoc:
