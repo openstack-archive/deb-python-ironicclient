@@ -1,0 +1,11 @@
+Code-Review+2: Vladyslav Drok <vdrok@mirantis.com>
+Code-Review+1: Anton Arefiev <aarefiev@mirantis.com>
+Code-Review+2: Julia Kreger <juliaashleykreger@gmail.com>
+Code-Review+2: Jay Faulkner <jay@jvf.cc>
+Workflow+1: Jay Faulkner <jay@jvf.cc>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Tue, 11 Oct 2016 23:53:38 +0000
+Reviewed-on: https://review.openstack.org/378526
+Project: openstack/deb-python-ironicclient
+Branch: refs/heads/master
