@@ -1,8 +1,10 @@
-python-ironicclient (1.7.0-3) UNRELEASED; urgency=medium
+python-ironicclient (1.7.1-1) unstable; urgency=medium
 
+  * Team upload.
+  * New upstream release
   * Bumped debhelper compat version to 10
 
- -- Ondřej Nový <onovy@debian.org>  Thu, 24 Nov 2016 00:06:46 +0100
+ -- Ondřej Nový <onovy@debian.org>  Thu, 29 Dec 2016 00:10:08 +0100
 
 python-ironicclient (1.7.0-2) unstable; urgency=medium
 
