@@ -1,0 +1,9 @@
+Code-Review+2: Ruby Loo <ruby.loo@intel.com>
+Code-Review+2: John L. Villalovos <openstack.org@sodarock.com>
+Workflow+1: John L. Villalovos <openstack.org@sodarock.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Sat, 24 Dec 2016 20:35:20 +0000
+Reviewed-on: https://review.openstack.org/412545
+Project: openstack/deb-python-ironicclient
+Branch: refs/heads/master
