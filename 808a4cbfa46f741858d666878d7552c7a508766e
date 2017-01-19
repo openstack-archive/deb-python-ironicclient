@@ -1,0 +1,9 @@
+Code-Review+2: Dmitry Tantsur <divius.inside@gmail.com>
+Code-Review+2: Julia Kreger <juliaashleykreger@gmail.com>
+Workflow+1: Dmitry Tantsur <divius.inside@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Wed, 18 Jan 2017 17:43:14 +0000
+Reviewed-on: https://review.openstack.org/357627
+Project: openstack/deb-python-ironicclient
+Branch: refs/heads/master
