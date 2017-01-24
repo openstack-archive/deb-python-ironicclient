@@ -1,0 +1,11 @@
+Code-Review+1: Vadim Hmyrov <vhmyrov@mirantis.com>
+Code-Review+1: Mario Villaplana <mario.villaplana@gmail.com>
+Code-Review+2: Dmitry Tantsur <divius.inside@gmail.com>
+Code-Review+2: Julia Kreger <juliaashleykreger@gmail.com>
+Workflow+1: Julia Kreger <juliaashleykreger@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Tue, 24 Jan 2017 02:58:41 +0000
+Reviewed-on: https://review.openstack.org/418445
+Project: openstack/deb-python-ironicclient
+Branch: refs/heads/master
