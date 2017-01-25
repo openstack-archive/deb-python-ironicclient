@@ -1,0 +1,11 @@
+Code-Review+2: Jim Rollenhagen <jim@jimrollenhagen.com>
+Code-Review+1: Joanna Taryma <joanna.taryma@intel.com>
+Code-Review+1: Naohiro Tamura <naohirot.openstack@gmail.com>
+Code-Review+2: Dmitry Tantsur <divius.inside@gmail.com>
+Workflow+1: Dmitry Tantsur <divius.inside@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Tue, 24 Jan 2017 12:45:58 +0000
+Reviewed-on: https://review.openstack.org/424293
+Project: openstack/deb-python-ironicclient
+Branch: refs/heads/master
