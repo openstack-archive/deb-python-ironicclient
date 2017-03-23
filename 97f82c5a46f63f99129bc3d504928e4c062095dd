@@ -1,0 +1,10 @@
+Code-Review+1: Mark Goddard <mark@stackhpc.com>
+Code-Review+2: Vladyslav Drok <vdrok@mirantis.com>
+Code-Review+2: Lucas Alvares Gomes <lucasagomes@gmail.com>
+Workflow+1: Lucas Alvares Gomes <lucasagomes@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Mon, 27 Feb 2017 11:37:10 +0000
+Reviewed-on: https://review.openstack.org/423333
+Project: openstack/deb-python-ironicclient
+Branch: refs/heads/master

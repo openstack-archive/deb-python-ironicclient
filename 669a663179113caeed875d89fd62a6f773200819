@@ -1,0 +1,9 @@
+Code-Review+2: Vasyl Saienko <vsaienko@mirantis.com>
+Code-Review+2: Jay Faulkner <jay@jvf.cc>
+Workflow+1: Jay Faulkner <jay@jvf.cc>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Wed, 01 Mar 2017 18:24:57 +0000
+Reviewed-on: https://review.openstack.org/431648
+Project: openstack/deb-python-ironicclient
+Branch: refs/heads/master
