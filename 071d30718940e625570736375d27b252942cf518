@@ -1,0 +1,9 @@
+Code-Review+2: Mario Villaplana <mario.villaplana@gmail.com>
+Code-Review+2: Jay Faulkner <jay@jvf.cc>
+Workflow+1: Jay Faulkner <jay@jvf.cc>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Thu, 23 Mar 2017 22:17:18 +0000
+Reviewed-on: https://review.openstack.org/447309
+Project: openstack/deb-python-ironicclient
+Branch: refs/heads/master
