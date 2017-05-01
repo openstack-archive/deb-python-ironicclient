@@ -1,0 +1,9 @@
+Code-Review+2: Vasyl Saienko <vsaienko@mirantis.com>
+Code-Review+2: Ruby Loo <ruby.loo@intel.com>
+Workflow+1: Ruby Loo <ruby.loo@intel.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Mon, 01 May 2017 15:01:20 +0000
+Reviewed-on: https://review.openstack.org/419274
+Project: openstack/deb-python-ironicclient
+Branch: refs/heads/master
