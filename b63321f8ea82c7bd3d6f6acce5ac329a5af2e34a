@@ -1,0 +1,11 @@
+Code-Review+1: Igor Pukha <ipukha@mirantis.com>
+Code-Review+1: Galyna Zholtkevych <gzholtkevych@mirantis.com>
+Code-Review+2: Dmitry Tantsur <divius.inside@gmail.com>
+Code-Review+2: Vasyl Saienko <vsaienko@mirantis.com>
+Workflow+1: Vasyl Saienko <vsaienko@mirantis.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Wed, 03 May 2017 07:29:44 +0000
+Reviewed-on: https://review.openstack.org/450702
+Project: openstack/deb-python-ironicclient
+Branch: refs/heads/master
