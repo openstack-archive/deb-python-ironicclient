@@ -1,0 +1,11 @@
+Code-Review+2: Ruby Loo <ruby.loo@intel.com>
+Code-Review+2: Julia Kreger <juliaashleykreger@gmail.com>
+Workflow+1: Julia Kreger <juliaashleykreger@gmail.com>
+Code-Review+2: Dmitry Tantsur <divius.inside@gmail.com>
+Workflow+1: Dmitry Tantsur <divius.inside@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Thu, 20 Jul 2017 11:05:39 +0000
+Reviewed-on: https://review.openstack.org/461893
+Project: openstack/deb-python-ironicclient
+Branch: refs/heads/master
