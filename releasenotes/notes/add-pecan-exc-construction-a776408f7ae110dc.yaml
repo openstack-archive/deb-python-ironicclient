@@ -1,4 +1,0 @@
----
-fixes:
-  - Fixes an issue where certain error messages from the
-    ironic API were suppressed.

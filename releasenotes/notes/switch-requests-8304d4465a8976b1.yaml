@@ -1,5 +1,0 @@
----
-features:
-  - Switch HTTP client to requests lib. It allows client to work with API
-    behind the proxy, configure proxies by setting the environment
-    variables HTTP_PROXY and HTTPS_PROXY.

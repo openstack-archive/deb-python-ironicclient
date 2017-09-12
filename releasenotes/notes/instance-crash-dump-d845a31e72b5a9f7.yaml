@@ -1,4 +1,0 @@
----
-features:
-  - Add a new command "ironic node-inject-nmi" to support the
-    injection of Non-Masking Interrupts (NMI).

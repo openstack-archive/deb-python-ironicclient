@@ -1,4 +1,0 @@
----
-fixes:
-  - Fixes 'ironic create <file>' command so that it handles the
-    file argument(s) correctly.

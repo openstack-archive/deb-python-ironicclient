@@ -1,4 +1,0 @@
----
-features:
-  - Adds support for the new ``node.resource_class`` field,
-    which was introduced in API version 1.21.

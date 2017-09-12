@@ -1,4 +1,0 @@
----
-features:
-  - Add optional arguments '--soft' and '--power-timeout' to the command
-    "node-set-power-state".

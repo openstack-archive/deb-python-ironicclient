@@ -1,3 +1,0 @@
----
-fixes:
-  - when deleting multiple nodes, continue with deletes even if one fails.

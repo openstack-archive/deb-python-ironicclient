@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Adds support for the ``port.physical_network`` field, which was introduced
-    in API version 1.34.

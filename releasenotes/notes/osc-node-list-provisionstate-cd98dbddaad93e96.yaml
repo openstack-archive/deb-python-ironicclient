@@ -1,4 +1,0 @@
----
-fixes:
-  - Allows all provision states for OSC node list
-    command with --provision-state argument
